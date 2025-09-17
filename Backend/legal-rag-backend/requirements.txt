@@ -1,0 +1,16 @@
+fastapi
+uvicorn
+google-cloud-aiplatform
+vertexai
+google-cloud-documentai
+python-dotenv
+numpy
+python-multipart
+# requirements.txt
+
+fastapi
+uvicorn[standard]
+python-dotenv
+google-cloud-aiplatform>=1.55.0
+google-cloud-documentai
+numpy
