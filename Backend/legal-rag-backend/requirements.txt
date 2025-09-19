@@ -14,3 +14,31 @@ python-dotenv
 google-cloud-aiplatform>=1.55.0
 google-cloud-documentai
 numpy
+
+
+# FastAPI framework
+fastapi==0.115.0
+uvicorn[standard]==0.30.1
+
+# Environment variables
+python-dotenv==1.0.1
+
+# Google Cloud SDKs
+google-cloud-documentai==2.29.0
+google-cloud-aiplatform==1.73.0
+
+# LangChain (for RecursiveCharacterTextSplitter)
+langchain==0.2.16
+
+# Utilities
+numpy==1.26.4
+
+# CORS middleware
+starlette
+fastapi
+uvicorn[standard]==0.23.2
+python-doten
+google-cloud-documentai
+vertexai
+numpy
+PyMuPDF
