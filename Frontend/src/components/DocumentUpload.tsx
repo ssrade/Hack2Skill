@@ -119,7 +119,7 @@ export const DocumentUpload = ({ onUpload, onUploadSuccess, isAnalyzing }: Docum
       onDragOver={handleDrag}
       onDrop={handleDrop}
     >
-      <div className="p-8 text-center relative z-10">
+      <div className="p-7 text-center relative z-10">
         <input
           type="file"
           id="file-upload"

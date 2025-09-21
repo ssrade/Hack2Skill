@@ -88,7 +88,7 @@ const Index = () => {
                 <Sparkles className="w-4 h-4 text-blue-300" />
                 <span className="text-sm text-blue-200 font-medium">Step 1: Upload Document</span>
               </motion.div>
-              <h2 className="text-4xl md:text-5xl font-bold mb-4 bg-gradient-to-r from-blue-200 via-purple-200 to-cyan-200 bg-clip-text text-transparent">
+              <h2 className="text-4xl md:text-5xl p-2 font-bold mb-8 bg-gradient-to-r from-blue-200 via-purple-200 to-cyan-200 bg-clip-text text-transparent">
                 Begin Your Legal Analysis
               </h2>
               <p className="text-gray-300 max-w-2xl mx-auto text-lg leading-relaxed">
