@@ -1,7 +1,7 @@
 import axios from "axios";
 
 const apiClient = axios.create({
-  baseURL: "http://127.0.0.1:8000", // backend base URL
+  baseURL: "https://legal-rag-backend-1049380606759.us-central1.run.app", // backend base URL
   headers: {
     "Content-Type": "application/json",
   },
