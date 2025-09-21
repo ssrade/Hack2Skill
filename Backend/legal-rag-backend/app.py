@@ -217,13 +217,20 @@ async def get_clauses():
 You are a legal assistant reviewing document clauses.
 
 Task:
-1. Identify top 5 clauses (most important obligations/duties/rules)
-2. Provide full easy-to-understand explanation
-3. Do not leave explanations incomplete
-4. Return JSON like:
+1. Identify top 5 clauses (most important obligations/duties/rules).
+2. Provide full easy-to-understand explanation for each top clause.
+3. Do not leave explanations incomplete.
+4. Return JSON in the format:
 {{
-"top_clauses":[{{"clause":"Clause X: text","explanation":"full explanation"}},...],
-"all_clauses":[ "Clause 1: full text", ... ]
+  "total_clauses": <number>,
+  "top_clauses": [
+    {{"clause": "Clause X: text", "explanation": "full explanation"}},
+    ...
+  ],
+  "all_clauses": [
+    "Clause 1: full text",
+    ...
+  ]
 }}
 
 Clauses from document:
