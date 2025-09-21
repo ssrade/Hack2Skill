@@ -1,4 +1,4 @@
-import { Scale, Brain, Shield, FileCheck, Zap, Sparkles, Rocket, ArrowRight, Play, Globe, CheckCircle, Lock } from "lucide-react";
+import { Scale, Brain, Shield, FileCheck, Zap, Sparkles, Rocket, ArrowRight, Play, Globe, CheckCircle, Lock, Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
@@ -19,11 +19,6 @@ export const LegalHero = () => {
       icon: <FileCheck className="w-5 h-5" />,
       title: "Plain English",
       description: "Complex legal jargon translated to clear, actionable insights"
-    },
-    {
-      icon: <Zap className="w-5 h-5" />,
-      title: "Lightning Fast",
-      description: "Analyze complex documents in under 30 seconds"
     }
   ];
 
@@ -138,11 +133,15 @@ export const LegalHero = () => {
               <Lock className="w-4 h-4 text-amber-400" />
               <span>Bank-level security</span>
             </div>
+            <div className="flex items-center gap-2 bg-gray-800/40 px-3 py-1.5 rounded-full">
+              <Languages className="w-4 h-4 text-amber-400" />
+              <span>Multi-Lingual Support</span>
+            </div>
           </motion.div>
 
           {/* Features grid */}
           <motion.div 
-            className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5 mt-10"
+            className="flex flex-row items-center justify-center text-center gap-5 mt-10"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.5 }}
@@ -150,7 +149,7 @@ export const LegalHero = () => {
             {features.map((feature, index) => (
               <motion.div 
                 key={index} 
-                className="bg-gray-800/30 backdrop-blur-md border border-gray-700/30 rounded-xl p-6 hover:bg-gray-800/40 transition-all duration-300 group cursor-pointer"
+                className="bg-gray-800/30 backdrop-blur-md border border-gray-700/30 rounded-xl p-6 hover:bg-gray-800/40 transition-all duration-300 group cursor-pointer "
                 whileHover={{ y: -3 }}
               >
                 <div className="flex flex-col items-center text-center gap-3">

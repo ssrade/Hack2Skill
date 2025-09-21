@@ -202,7 +202,7 @@ const Index = () => {
                   {
                     icon: <Target className="w-8 h-8 text-green-400" />,
                     title: "Precision Insights",
-                    description: "AI trained on millions of legal documents for accurate, actionable insights"
+                    description: "Using RAG and vertexAI with a reference of deeds book"
                   }
                 ].map((feature, index) => (
                   <motion.div
