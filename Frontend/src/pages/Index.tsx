@@ -183,7 +183,7 @@ const Index = () => {
                 <Crown className="w-4 h-4 text-yellow-400" />
                 <span className="text-sm text-blue-200 font-medium">Why Choose DocuLex AI?</span>
               </div>
-              <h2 className="text-4xl md:text-5xl font-bold mb-12 bg-gradient-to-r from-blue-200 via-purple-200 to-cyan-200 bg-clip-text text-transparent">
+              <h2 className="text-4xl md:text-5xl p-3 font-bold mb-12 bg-gradient-to-r from-blue-200 via-purple-200 to-cyan-200 bg-clip-text text-transparent">
                 Enterprise-Grade Legal AI
               </h2>
               
