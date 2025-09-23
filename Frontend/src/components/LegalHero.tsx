@@ -1,9 +1,11 @@
-import { Scale, Brain, Shield, FileCheck, Zap, Sparkles, Rocket, ArrowRight, Play, Globe, CheckCircle, Lock, Languages } from "lucide-react";
+import { useState } from "react";
+import { Scale, Brain, Shield, FileCheck, Zap, Sparkles, Rocket, ArrowRight, Play, Globe, CheckCircle, Lock, Languages, X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
 
 export const LegalHero = () => {
+  const [showDemo, setShowDemo] = useState(false);
   const features = [
     {
       icon: <Brain className="w-5 h-5" />,
@@ -94,23 +96,24 @@ export const LegalHero = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.3 }}
           >
-            <Button 
-  size="lg" 
-  onClick={scrollToUpload}
-  className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-500 hover:to-purple-500 shadow-lg transition-all duration-300 px-7 py-3.5 rounded-lg group text-lg font-semibold"
->
-  <Rocket className="w-5 h-5 mr-2 group-hover:rotate-45 transition-transform duration-300" />
-  Start Free Analysis
-  <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
-</Button>
+            <Button
+              size="lg"
+              onClick={scrollToUpload}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-500 hover:to-purple-500 shadow-lg transition-all duration-300 px-7 py-3.5 rounded-lg group text-lg font-semibold"
+            >
+              <Rocket className="w-5 h-5 mr-2 group-hover:rotate-45 transition-transform duration-300" />
+              Start Free Analysis
+              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
+            </Button>
 
-<Button 
-  size="lg" 
-  className="bg-gradient-to-r from-blue-700/80 via-purple-700/70 to-blue-700/80 text-white hover:from-blue-600/80 hover:to-purple-600/80 shadow-md transition-all duration-300 px-7 py-3.5 rounded-lg group text-lg font-semibold"
->
-  <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform duration-300" />
-  Watch Demo
-</Button>
+            <Button
+              size="lg"
+              onClick={() => setShowDemo(true)}
+              className="bg-gradient-to-r from-blue-700/80 via-purple-700/70 to-blue-700/80 text-white hover:from-blue-600/80 hover:to-purple-600/80 shadow-md transition-all duration-300 px-7 py-3.5 rounded-lg group text-lg font-semibold"
+            >
+              <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform duration-300" />
+              Watch Demo
+            </Button>
 
           </motion.div>
 
@@ -168,6 +171,53 @@ export const LegalHero = () => {
           </motion.div>
         </div>
       </div>
+      {/* Demo Modal */}
+      {showDemo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowDemo(false)}></div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.18 }}
+            className="relative z-50 w-[90%] max-w-4xl bg-slate-900 rounded-2xl shadow-2xl overflow-hidden"
+          >
+            <div className="flex items-start justify-between p-3 border-b border-slate-800">
+              <div className="text-sm text-slate-200 font-medium">Product Demo</div>
+              <div className="flex items-center gap-2">
+                <a
+                  href="https://youtu.be/zYEOnBpakZA?si=eNdK1RR2JpOrjn_u"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-slate-200 hover:text-white flex items-center gap-2 text-sm"
+                >
+                  Open in new tab
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+                <button
+                  onClick={() => setShowDemo(false)}
+                  className="p-2 rounded-md text-slate-200 hover:bg-slate-800/50"
+                  aria-label="Close demo"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4">
+              <div className="aspect-video">
+                <iframe
+                  src="https://www.youtube.com/embed/zYEOnBpakZA"
+                  title="DocuLex Demo"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full rounded-md"
+                />
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };
