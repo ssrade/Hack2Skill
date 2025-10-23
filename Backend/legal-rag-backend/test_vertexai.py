@@ -8,10 +8,13 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.getenv("GOOGLE_APPLICATION_CRE
 
 # Initialize Vertex AI
 vertexai.init(
-    project="hip-well-472414-c5",  # replace with your actual project ID
+    project="",  # replace with your actual project ID
     location="us-south1"                    # region of your processor
 )
 
 
 
 print("Vertex AI initialized successfully!")
+from google.cloud import aiplatform
+
+print(dir(aiplatform.MatchingEngineIndexEndpoint))
