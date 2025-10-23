@@ -4,33 +4,40 @@ from datetime import datetime
 # Initialize Firestore client
 db = firestore.Client()
 
-def save_processed_data(user_id: str, doc_id: str, data_type: str, data: dict):
-    """
-    Save processed data (summary, clauses, risks) for a specific user and document.
-    - data_type: "summary" | "clauses" | "risks"
-    """
-    if data_type not in ["summary", "clauses", "risks"]:
-        raise ValueError(f"Invalid data_type: {data_type}")
+VALID_DATA_TYPES = ["full_text_chunks", "summary", "clauses", "risks"]
 
-    doc_ref = db.collection("users").document(user_id).collection("docs").document(doc_id)
+def save_processed_data(user_id: str, doc_id: str, data_type: str, data):
+    """
+    Save processed data of any type (summary, clauses, risks, full_text_chunks) for a document.
+    Dynamic: no need to predefine allowed types.
+    """
+    if not all([user_id, doc_id, data_type]):
+        raise ValueError("user_id, doc_id, and data_type must be provided.")
+
+    doc_ref = db.collection("processed_docs").document(f"{user_id}_{doc_id}")
     doc_ref.set({data_type: data}, merge=True)
 
 
-def get_processed_data(user_id: str, doc_id: str) -> dict:
+def get_processed_data(user_id: str, doc_id: str, data_type: str):
     """
-    Fetch all processed data for a user/document.
-    Returns a dict with keys: summary, clauses, risks (if they exist).
+    Retrieve processed data of a specific type for a document.
+    Returns None if not found.
     """
-    doc_ref = db.collection("users").document(user_id).collection("docs").document(doc_id)
-    doc_snap = doc_ref.get()
-    if doc_snap.exists:
-        return doc_snap.to_dict()
-    return {}
+    if not all([user_id, doc_id, data_type]):
+        raise ValueError("user_id, doc_id, and data_type must be provided.")
 
+    doc_ref = db.collection("processed_docs").document(f"{user_id}_{doc_id}")
+    doc_snapshot = doc_ref.get()
+    if doc_snapshot.exists:
+        return doc_snapshot.to_dict().get(data_type)
+    return None
 
-def delete_processed_data(user_id: str, doc_id: str):
+def delete_processed_data(user_id: str, doc_id: str, data_type: str):
     """
-    Delete all processed data for a specific user/document.
+    Deletes a specific data_type from Firestore for a user document.
     """
-    doc_ref = db.collection("users").document(user_id).collection("docs").document(doc_id)
-    doc_ref.delete()
+    if data_type not in VALID_DATA_TYPES:
+        raise ValueError(f"Invalid data_type: {data_type}")
+
+    doc_ref = db.collection("users").document(user_id).collection("documents").document(doc_id)
+    doc_ref.update({data_type: firestore.DELETE_FIELD})
