@@ -1,54 +1,59 @@
 # utils/chunker.py
-# utils/chunker.py
+# chunking and text processing 
+
 import re
-from typing import List
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 
-def chunk_text(text: str, max_chars: int = 3000, overlap: int = 300) -> List[str]:
+def split_into_clauses(text: str) -> list[str]:
     """
-    Split text into chunks of approximately max_chars with overlap, trying not to break sentences.
-    Returns list of text chunks.
+    Split document into clauses by detecting structured headings.
+    Works with patterns like '1) Clause Title (Code-XYZ)' or 'a. Clause'.
     """
-    if not text:
-        return []
+    pattern = r'(\n\d+\)\s.*?\(Code\s*-\s*\w+\)|\n[a-zA-Z]\.\s)'
+    parts = re.split(pattern, text)
+    grouped_clauses = []
 
-    # Normalize whitespace
-    text = re.sub(r'\s+', ' ', text).strip()
+    # Handle text before the first heading
+    if parts[0] and parts[0].strip():
+        grouped_clauses.append(parts[0].strip())
 
-    # Split into sentences heuristically
-    sentences = re.split(r'(?<=[\.\?\!])\s+', text)
-
-    chunks = []
-    current = ""
-
-    for sent in sentences:
-        if not sent:
-            continue
-        # If adding this sentence would exceed size, flush current chunk
-        if len(current) + len(sent) + 1 > max_chars:
-            if current:
-                chunks.append(current.strip())
-            # start new chunk: include overlap words from previous chunk if possible
-            if chunks:
-                tail_words = chunks[-1].split()[-overlap:] if overlap > 0 else []
-                current = " ".join(tail_words) + " " + sent
-            else:
-                current = sent
+    # Pair headings with their text
+    for i in range(1, len(parts), 2):
+        if i + 1 < len(parts):
+            grouped_clauses.append(f"{parts[i].strip()}\n{parts[i+1].strip()}")
         else:
-            current = (current + " " + sent).strip() if current else sent
+            grouped_clauses.append(parts[i].strip())
 
-    if current:
-        chunks.append(current.strip())
+    return [c for c in grouped_clauses if c.strip()]
 
-    # Final safety: if any chunk still too large, split by characters
-    safe_chunks = []
-    for ch in chunks:
-        if len(ch) <= max_chars:
-            safe_chunks.append(ch)
-        else:
-            # naive split into equal parts
-            start = 0
-            while start < len(ch):
-                safe_chunks.append(ch[start:start+max_chars])
-                start += max_chars - overlap
 
-    return safe_chunks
+def chunk_text(text: str, chunk_size=1500, chunk_overlap=200) -> list[str]:
+    """
+    Splits large text into smaller chunks using RecursiveCharacterTextSplitter.
+    Maintains semantic integrity by avoiding random sentence breaks.
+    """
+    text_splitter = RecursiveCharacterTextSplitter(
+        chunk_size=chunk_size,
+        chunk_overlap=chunk_overlap,
+        separators=["\n\n", "\n", ".", "!", "?", " ", ""],
+    )
+
+    return text_splitter.split_text(text)
+
+
+def process_text_for_llm(text: str) -> list[str]:
+    """
+    Combines clause detection and text chunking for maximum LLM efficiency.
+    If structured clauses are found, each clause is chunked individually.
+    Otherwise, the full text is chunked directly.
+    """
+    clauses = split_into_clauses(text)
+
+    if clauses and len(clauses) > 1:
+        all_chunks = []
+        for clause in clauses:
+            all_chunks.extend(chunk_text(clause))
+        return all_chunks
+    else:
+        # fallback for unstructured docs
+        return chunk_text(text)

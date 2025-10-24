@@ -22,3 +22,7 @@ numpy
 PyMuPDF
 google-cloud-firestore
 requests
+langchain-text-splitters
+weasyprint
+jinja2
+matplotlib
