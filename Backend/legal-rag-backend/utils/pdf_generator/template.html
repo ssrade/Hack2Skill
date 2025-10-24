@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -214,6 +214,267 @@
             {% endfor %}
         </div>
         
+        <h3>Low Risk ({{ risks.counts.Low | default(0) }})</h3>
+        <div class="risk-list low">
+            {% for clause in risks.top_clauses.Low | default([]) %}
+                <p>{{ clause | default('Clause text missing.') }}</p>
+            {% else %}
+                <p>No low-risk clauses identified.</p>
+            {% endfor %}
+        </div>
+
+
+        <h2>Key Clause Analysis</h2>
+        {% if top_clauses %}
+            {% for item in top_clauses %}
+                <div class="clause-item">
+                    <p><strong>Clause:</strong> {{ item.clause | default('Clause text missing.') }}</p>
+                    <p><strong>Explanation:</strong> {{ item.explanation | default('No explanation provided.') }}</p>
+                </div>
+            {% endfor %}
+        {% else %}
+            <p>No detailed key clauses were extracted for analysis.</p>
+        {% endif %}
+
+    </div>
+</body>
+</html> -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Risk Report - {{ doc_id | default('Contract Report') }}</title>
+    <style>
+        /* Note: Web-hosted fonts are used for simplicity. For production stability, embed them in your Docker image. */
+        @font-face {
+            font-family: 'Gentium';
+            src: url(https://fonts.gstatic.com/s/gentiumbasic/v15/WnzjFeGQQVlH3VqbK1M-lgs0vBw7a-GP.woff2);
+        }
+        @font-face {
+            font-family: 'Gentium';
+            font-weight: bold;
+            src: url(https://fonts.gstatic.com/s/gentiumbasic/v15/WnzgFeGQQVlH3VqbK1M-ljsWAtv8d-Y8aFE.woff2);
+        }
+
+        /* ========================================================= */
+        /* --- 1. RUNNING ELEMENTS & FOOTER STYLING --- */
+        @page {
+            size: A4;
+            margin-bottom: 70pt; /* Increased margin to fit footer content */
+
+            /* Place the branding stamp on the bottom right (PURPLE) */
+            @bottom-right {
+                content: element(doculex-stamp);
+                font-weight: bold;
+                color: #663399; /* Deep Purple Color */
+            }
+
+            /* Place the page number in the center */
+            @bottom-center {
+                content: counter(page);
+                font-size: 9pt;
+                color: #555;
+            }
+        }
+
+        /* Define the element that will be used as the running stamp/logo */
+        #doculex-stamp {
+            position: running(doculex-stamp);
+            padding-top: 5pt;
+        }
+        /* ========================================================= */
+
+
+        /* --- 2. BASE STYLING & TYPOGRAPHY --- */
+        body {
+            font-family: 'Gentium', 'Times New Roman', serif;
+            margin: 0;
+            padding: 0;
+            color: #333;
+        }
+        .container {
+            width: 90%;
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 70pt; /* Ensure main content doesn't overlap footer area */
+        }
+        h1 {
+            color: #2c3e50;
+            border-bottom: 2px solid #3498db;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #34495e;
+            border-bottom: 1px solid #bdc3c7;
+            padding-bottom: 5px;
+            margin-top: 30px;
+        }
+
+        /* --- PROFESSIONAL SUMMARY PARAGRAPH STYLE --- */
+        .summary-body {
+            text-align: justify;
+            font-size: 11pt;
+            text-indent: 1.5em;
+            line-height: 1.8;
+            margin-bottom: 0;
+        }
+        /* --- CORRECTED DROP CAP STYLE (Simpler, No Float) --- */
+        .summary-body::first-letter {
+            font-size: 2.2em;
+            font-weight: bold;
+            color: #34495e;
+            margin-right: 0.05em;
+            line-height: 0.8;
+            vertical-align: -0.1em;
+            /* Removed float: left; */
+        }
+        /* --- RISK BAR AND GAUGE STYLING --- */
+        .gauge-container {
+            display: flex;
+            justify-content: space-around;
+            text-align: center;
+            margin: 30px 0;
+        }
+        .risk-bar-wrapper {
+            margin: 20px auto 40px auto;
+            width: 90%;
+        }
+        .risk-bar-title {
+            text-align: left;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #34495e;
+            font-size: 16px;
+        }
+        .risk-bar-container {
+            width: 100%;
+            background: #e0e0e0; /* Gray background for the empty part */
+            height: 35px;
+            border-radius: 5px;
+            overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1) inset;
+        }
+        .risk-bar-fill {
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 10px;
+            font-weight: bold;
+            color: #fff;
+            box-sizing: border-box;
+            /* WIDTH and COLOR are set by Python variables */
+        }
+        /* --- DATA SECTION STYLING --- */
+        .clause-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #fdfdfd;
+            border-left: 5px solid #bdc3c7;
+        }
+        .clause-item strong {
+            color: #2c3e50;
+        }
+        .risk-list p {
+            padding: 8px;
+            border-bottom: 1px dotted #ccc;
+        }
+        .risk-list.high p { border-left: 3px solid #e74c3c; background: #fbeeeC; }
+        .risk-list.medium p { border-left: 3px solid #f39c12; background: #fef9e7; }
+        .risk-list.low p { border-left: 3px solid #2ecc71; background: #eafaf1; }
+        .key-terms ul {
+            list-style-type: none;
+            padding-left: 0;
+            display: flex;
+            flex-wrap: wrap;
+        }
+        .key-terms li {
+            background: #ecf0f1;
+            color: #34495e;
+            padding: 5px 10px;
+            border-radius: 4px;
+            margin: 4px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="doculex-stamp">
+        DocuLex AI
+    </div>
+
+    <div class="container">
+        <h1>Contract Risk Report</h1>
+        <p class="doc-id">Document ID: {{ doc_id | default('N/A') }}</p>
+
+        <div class="risk-bar-wrapper">
+            <div class="risk-bar-title">Overall Risk Score: Mid + High Risk Exposure</div>
+            <div class="risk-bar-container">
+                <div class="risk-bar-fill" style="width: {{ danger_score_pct }}%;
+                                                background-color: {{ bar_color }};">
+                    {{ danger_score_pct | default(0) }}%
+                </div>
+            </div>
+        </div>
+
+
+        <h2>Risk Breakdown</h2>
+        <div class="gauge-container">
+            <div>
+                <img src="data:image/png;base64,{{ high_gauge_src }}"
+                     alt="High Risk Gauge"
+                     style="width:150px; height:150px; display:block;"/>
+            </div>
+            <div>
+                <img src="data:image/png;base64,{{ medium_gauge_src }}"
+                     alt="Medium Risk Gauge"
+                     style="width:150px; height:150px; display:block;"/>
+            </div>
+            <div>
+                <img src="data:image/png;base64,{{ low_gauge_src }}"
+                     alt="Low Risk Gauge"
+                     style="width:150px; height:150px; display:block;"/>
+            </div>
+        </div>
+
+
+        <h2>Document Summary</h2>
+        <p class="summary-body">{{ summary_text | default('No summary text was extracted.') }}</p>
+
+        <div class="key-terms">
+            <h3>Key Terms</h3>
+            <ul>
+                {% if key_terms %}
+                    {% for term in key_terms %}
+                        <li>{{ term | default('') }}</li>
+                    {% endfor %}
+                {% else %}
+                    <li>No key terms found.</li>
+                {% endif %}
+            </ul>
+        </div>
+
+        <h2>Top Risk Clauses</h2>
+
+        <h3>High Risk ({{ risks.counts.High | default(0) }})</h3>
+        <div class="risk-list high">
+            {% for clause in risks.top_clauses.High | default([]) %}
+                <p>{{ clause | default('Clause text missing.') }}</p>
+            {% else %}
+                <p>No high-risk clauses identified.</p>
+            {% endfor %}
+        </div>
+
+        <h3>Medium Risk ({{ risks.counts.Medium | default(0) }})</h3>
+        <div class="risk-list medium">
+            {% for clause in risks.top_clauses.Medium | default([]) %}
+                <p>{{ clause | default('Clause text missing.') }}</p>
+            {% else %}
+                <p>No medium-risk clauses identified.</p>
+            {% endfor %}
+        </div>
+
         <h3>Low Risk ({{ risks.counts.Low | default(0) }})</h3>
         <div class="risk-list low">
             {% for clause in risks.top_clauses.Low | default([]) %}
