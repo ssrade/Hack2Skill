@@ -26,3 +26,6 @@ langchain-text-splitters
 weasyprint
 jinja2
 matplotlib
+vertexai
+google-cloud-aiplatform
+python-multipart

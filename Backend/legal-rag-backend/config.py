@@ -7,9 +7,6 @@ VERTEX_AI_LOCATION = "us-central1"
 
 FIRESTORE_COLLECTION = "user_documents" 
 
-
-
-
 GEMINI_MODEL = "gemini-2.5-flash"
 PINECONE_ENVIRONMENT = "us-east-1"  # or whatever environment your index is in
 RAG_INDEX_NAME= "legal-rag-index"

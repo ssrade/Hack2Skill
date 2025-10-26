@@ -12,17 +12,51 @@ import vertexai
 import config
 from pinecone import Pinecone, ServerlessSpec
 from fastapi.responses import StreamingResponse
+from fastapi.responses import PlainTextResponse
 import io
+from google.cloud import aiplatform
+from vertexai.preview import rag
+from contextlib import asynccontextmanager
+#from config import PROJECT_ID, VERTEX_AI_LOCATION
+import traceback
+from pydantic import BaseModel
+from typing import List
+import asyncio
+import tempfile
+import shutil
+# Import the function that wraps rag.upload_file
+from rag.prepare_corpus_and_data import upload_pdf_to_corpus
 
 # --- Utils ---
-from utils.text_processing import split_into_clauses
+#from utils.text_processing import split_into_clauses
 from utils.embeddings import embed_texts_batch
 from utils.retrieval import retrieve_top_k_pinecone
 from utils.pdf_extraction import extract_text_from_pdf
 from utils.firestore_utils import save_processed_data, get_processed_data
 from utils.chunker import chunk_text
 from utils.pdf_generator.pdf_gen import create_pdf_from_json
+#from utils.vertex_rag import upload_to_vertex_rag
 
+import os, tempfile, shutil, uuid, traceback
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.responses import JSONResponse
+from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
+#VERTEX RAG
+from fastapi import FastAPI, HTTPException, Form
+from rag.agent import root_agent
+# from rag.prepare_corpus_and_data import upload_file_to_corpus
+from google.adk import Agent
+
+import os
+# from rag.prepare_corpus_and_data import send_chunks_to_vertex_corpus
+from rag.prepare_corpus_and_data import initialize_vertex_ai 
+from rag.agent import root_agent
+
+app = FastAPI()
+
+aiplatform.init(project=config.PROJECT_ID, location=config.VERTEX_AI_LOCATION)
+CORPUS_NAME = "legal-rag-corpus"
 # --- Initialization ---
 load_dotenv()
 
@@ -124,7 +158,34 @@ def extract_chunk_texts(chunks):
             texts.append(str(c))
     return texts
 
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Code to run on startup
+    print("🚀 Initializing Vertex AI for RAG Agent during startup...")
+    try:
+        # Initialize Vertex AI connection targeting the RAG project (Project B)
+        initialize_vertex_ai()
+        if root_agent is None:
+             print("⚠️ WARNING: root_agent might not have been initialized successfully.")
+        else:
+            print("✅ Vertex AI Initialized. RAG Agent should be ready.")
+    except Exception as e:
+        print(f"❌ FATAL: Error during Vertex AI initialization: {e}")
+        # Decide if you want the app to fail startup if this happens
+        # raise  # Uncomment to stop the app if initialization fails
+    
+    yield # The application runs while yielded
+    
+    # Code to run on shutdown (if any)
+    print("ℹ️ Shutting down FastAPI application.")
+
+# --- FastAPI App Setup ---
+# Pass the lifespan function to the FastAPI constructor
+app = FastAPI(title="Legal RAG Backend", lifespan=lifespan)
+
 # --- Endpoints ---
+
 @app.post("/upload")
 async def upload_doc(file: UploadFile = File(...), doc_type: str = Form(...), user_id: str = Form(...)):
     if file.content_type != "application/pdf":
@@ -148,6 +209,7 @@ async def upload_doc(file: UploadFile = File(...), doc_type: str = Form(...), us
     # Extract plain text list for embeddings / LLM usage
     chunk_texts = [c["content"] if isinstance(c, dict) and "content" in c else str(c) for c in chunks]
 
+    
     # If embeddings / Pinecone enabled -> embed & upsert
     if USE_PINECONE:
         try:
@@ -192,6 +254,176 @@ async def upload_doc(file: UploadFile = File(...), doc_type: str = Form(...), us
     save_processed_data(user_id, doc_id, "full_text_chunks", store_chunks)
 
     return {"message": f"Document processed successfully ({len(store_chunks)} chunks).", "doc_id": doc_id}
+#################################################################################################################
+class RAGQueryRequest(BaseModel):
+    query: str
+
+@app.post("/upload-rag")
+async def upload_doc_to_rag(
+    file: UploadFile = File(..., description="The PDF file to upload."), # Added description for Swagger UI
+    user_id: str = Form(..., description="Identifier for the user uploading the document.") # Added description
+):
+    """
+    Receives a PDF file via form data and uploads it directly
+    to the configured Vertex AI RAG Corpus using rag.upload_file.
+    This endpoint uses the default parser provided by the RAG service.
+    """
+    # 1. Validate file type
+    if not file.content_type or file.content_type != "application/pdf":
+        await file.close() # Close the file before raising exception
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid file type ('{file.content_type}'). Only PDF ('application/pdf') is allowed."
+        )
+
+    # 2. Get the target RAG Corpus name from environment variables
+    corpus_resource_name = os.getenv("RAG_CORPUS")
+    if not corpus_resource_name:
+        await file.close()
+        print("❌ ERROR: RAG_CORPUS environment variable not set.")
+        raise HTTPException(
+            status_code=500, # Internal Server Error
+            detail="Server configuration error: RAG_CORPUS environment variable not set. Run the setup script first."
+        )
+    print(f"Target RAG Corpus: ...{corpus_resource_name[-20:]}") # Log truncated name
+
+    temp_pdf_path = None # Initialize path variable
+    try:
+        # 3. Save uploaded file to a temporary local path
+        # rag.upload_file needs a file path on the server's filesystem.
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
+            # Efficiently copy the stream content to the temporary file
+            shutil.copyfileobj(file.file, temp_pdf)
+            temp_pdf_path = temp_pdf.name # Get the path of the saved temp file
+
+        print(f"Saved uploaded file temporarily to: {temp_pdf_path}")
+        # Ensure file pointer is reset if needed, though copyfileobj handles it
+        # file.file.seek(0) # Usually not needed after copyfileobj
+
+        # 4. Call the upload function (defined in prepare_corpus_and_data.py)
+        # Use original filename if available, otherwise generate a UUID-based name
+        upload_display_name = file.filename if file.filename else f"upload_{uuid.uuid4()}.pdf"
+        
+        rag_file_result = upload_pdf_to_corpus(
+            corpus_name=corpus_resource_name,
+            pdf_path=temp_pdf_path, # Path to the temporary local file
+            display_name=upload_display_name,
+            description=f"Uploaded by user '{user_id}' via API." # Example description
+        )
+
+    except Exception as e:
+        print(f"❌ Error during direct RAG upload process: {e}")
+        traceback.print_exc() # Log the full error stack trace
+        # Provide a more generic error message to the client
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to submit document to RAG Corpus. Check server logs for details."
+        )
+    finally:
+        # 5. Clean up the temporary file ALWAYS
+        if temp_pdf_path and os.path.exists(temp_pdf_path):
+            try:
+                os.remove(temp_pdf_path)
+                print(f"Cleaned up temporary file: {temp_pdf_path}")
+            except Exception as cleanup_error:
+                 print(f"⚠️ Warning: Failed to delete temporary file {temp_pdf_path}: {cleanup_error}")
+        # Ensure the uploaded file stream is closed
+        await file.close()
+
+    # 6. Return success response if upload was submitted
+    if rag_file_result and hasattr(rag_file_result, 'name'):
+        # Extract the file ID from the full resource name for convenience
+        rag_file_id = rag_file_result.name.split('/')[-1]
+        return {
+            "message": f"Document '{rag_file_result.display_name}' submitted for processing.",
+            "rag_file_name": rag_file_result.name, # Full resource name in Vertex RAG
+            "doc_id": rag_file_id # The unique ID assigned by RAG service
+        }
+    else:
+        # If upload_pdf_to_corpus returned None or an unexpected object
+        print("❌ Upload submission failed or returned unexpected result.")
+        raise HTTPException(
+            status_code=500,
+            detail="Document upload submission to RAG Corpus failed (check server logs for specific error, e.g., quota, permissions)."
+        )
+
+
+
+
+# ...existing code...
+
+# ...existing code...
+from fastapi import HTTPException
+from pydantic import BaseModel
+from vertexai.preview import rag
+from vertexai.generative_models import GenerativeModel, Tool
+import os
+import traceback
+
+class RAGQueryRequest(BaseModel):
+    query: str
+    user_id: str = ""
+    doc_id: str = ""
+
+class RAGQueryResponse(BaseModel):
+    answer: str
+    user_id: str
+    doc_id: str
+
+@app.post("/query-rag", response_model=RAGQueryResponse)
+async def query_vertex_rag_agent(payload: RAGQueryRequest):
+    print("[DEBUG] RAG_CORPUS:", os.getenv("RAG_CORPUS"))
+
+    try:
+        corpus_name = os.getenv("RAG_CORPUS")
+        if not corpus_name:
+            raise HTTPException(status_code=500, detail="RAG_CORPUS not configured.")
+
+        enhanced_query = payload.query
+        if payload.doc_id:
+            enhanced_query = f"For document ID {payload.doc_id}: {payload.query}"
+
+        print(f"🔍 Querying RAG corpus with: {enhanced_query}")
+
+        # Create a RAG retrieval tool
+        rag_retrieval_tool = Tool.from_retrieval(
+            retrieval=rag.Retrieval(
+                source=rag.VertexRagStore(
+                    rag_resources=[
+                        rag.RagResource(
+                            rag_corpus=corpus_name,
+                        )
+                    ],
+                    similarity_top_k=5,
+                    vector_distance_threshold=0.5,
+                ),
+            )
+        )
+
+        # Create a model with the RAG tool
+        rag_model = GenerativeModel(
+            model_name="gemini-2.5-flash",
+            tools=[rag_retrieval_tool],
+        )
+
+        # Generate response using RAG
+        response = rag_model.generate_content(enhanced_query)
+        response_text = response.text
+
+        print(f"✅ Received response ({len(response_text)} chars): {response_text[:200]}...")
+
+        return RAGQueryResponse(
+            answer=response_text or "No response generated.",
+            user_id=payload.user_id,
+            doc_id=payload.doc_id
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error querying RAG: {str(e)}")
+################################
 
 @app.post("/summarize")
 async def summarize_doc(doc_id: str = Form(...), user_id: str = Form(...)):
@@ -305,79 +537,122 @@ Clauses:
     save_processed_data(user_id, doc_id, "risks", risks_data)
     return {"risks": risks_data}
 
+# @app.post("/query")
+# async def query_doc(question: str = Form(...), doc_id: str = Form(...), user_id: str = Form(...)):
+#     """
+#     (Kept as-is from your original app; this endpoint relies on Pinecone retrieval.)
+#     Answers user's question based *strictly* on provided context and generates follow-ups.
+#     """
+#     if not fetch_doc_chunks(user_id, doc_id): # Check if doc exists
+#         raise HTTPException(status_code=404, detail="Document not found.")
+
+#     # if Pinecone disabled, return helpful message
+#     if not USE_PINECONE or rag_index is None:
+#         return {
+#             "error": "Retrieval via Pinecone is disabled. Enable USE_PINECONE=true to use /query."
+#         }
+
+#     query_emb = embed_texts_batch([question])[0]
+#     retrieved_doc_texts = retrieve_top_k_pinecone(query_emb, rag_index, k=5, filter_dict={"user_id":{"$eq":user_id}, "doc_id":{"$eq":doc_id}})
+#     retrieved_rulebook_texts = retrieve_top_k_pinecone(query_emb, rulebook_index, k=5) if rulebook_index else []
+
+#     doc_context_str = "\n\n".join(retrieved_doc_texts)
+#     rulebook_context_str = "\n\n".join(retrieved_rulebook_texts)
+
+#     prompt = f"""
+# You are a factual legal assistant. Your answers **MUST** be based *ONLY* on the provided "Document context" and "Rulebook context". Do not add outside knowledge or assumptions.
+
+# Tasks:
+# 1.  **Answer the Question:** Based *strictly* on the provided context, answer the user's question in simple, clear language.
+#     * **Prioritize "Document context".**
+#     * Use "Rulebook context" ONLY to clarify terms found in the document context. Mention this using "(Reference from rulebook)".
+#     * If the answer is **NOT** found in EITHER context, you **MUST** respond *exactly*: "The provided document excerpts do not contain information to answer this question." and set source to "none". Do NOT attempt to answer from general knowledge.
+# 2.  **Generate Suggestions:** Create exactly 3 relevant follow-up questions a user might ask next, based *only* on the provided context.
+
+# Output Format:
+# Return **ONLY** a valid JSON object matching this structure EXACTLY:
+# {{
+#   "answer": "<Your concise answer based ONLY on context, or the specific 'not found' message>",
+#   "source": "document | rulebook | none",
+#   "suggested_questions": ["Follow-up Question 1", "Follow-up Question 2", "Follow-up Question 3"]
+# }}
+
+# --- PROVIDED CONTEXT START ---
+# Document context:
+# {doc_context_str if doc_context_str else "No relevant document context found."}
+
+# Rulebook context:
+# {rulebook_context_str if rulebook_context_str else "No relevant rulebook context found."}
+# --- PROVIDED CONTEXT END ---
+
+# User Question:
+# {question}
+# """
+#     response_data = generate_json_from_gemini(prompt)
+
+#     # Validate response structure (optional but recommended)
+#     if not isinstance(response_data, dict) or not all(k in response_data for k in ["answer", "source", "suggested_questions"]):
+#          print(f"Warning: Gemini returned malformed JSON for query: {question}. Raw: {response_data}")
+#          response_data = {
+#              "answer": "There was an issue generating the response. Please try rephrasing your question.",
+#              "source": "none",
+#              "suggested_questions": []
+#          }
+
+#     return {
+#         "response_json": response_data,
+#         "retrieved_clauses_doc_count": len(retrieved_doc_texts),
+#         "retrieved_clauses_rulebook_count": len(retrieved_rulebook_texts),
+#         "DEBUG_DOC_CONTEXT": retrieved_doc_texts,
+#         "DEBUG_RULEBOOK_CONTEXT": retrieved_rulebook_texts
+#     }
+
+# @app.post("/query")
+# async def query_rag_endpoint(user_query: str = Form(...)):
+#     """
+#     Receives a user query and directly queries the Vertex RAG corpus
+#     with the strict QUERY_PROMPT.
+#     """
+#     try:
+#         # Initialize RAG with the corpus you already uploaded chunks to
+#         corpus = rag.RagCorpus(name="legal-rag-corpus")
+
+#         # RAG internally retrieves relevant chunks from the corpus
+#         full_prompt = QUERY_PROMPT + f"\n\nUser Question:\n{user_query}"
+
+#         rag_response = corpus.generate(query=full_prompt)
+
+#         return {
+#             "response": rag_response.text
+#         }
+
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Failed to process query: {e}")
+
 @app.post("/query")
-async def query_doc(question: str = Form(...), doc_id: str = Form(...), user_id: str = Form(...)):
+async def query_legal_rag(
+    user_id: str = Form(...),
+    doc_id: str = Form(...),
+    query: str = Form(...)
+):
     """
-    (Kept as-is from your original app; this endpoint relies on Pinecone retrieval.)
-    Answers user's question based *strictly* on provided context and generates follow-ups.
+    Query the ADK-powered RAG Agent for legal question answering.
+    Accepts form data: user_id, doc_id, query
     """
-    if not fetch_doc_chunks(user_id, doc_id): # Check if doc exists
-        raise HTTPException(status_code=404, detail="Document not found.")
+    try:
+        agent = root_agent()
+        response = agent.query(query)
 
-    # if Pinecone disabled, return helpful message
-    if not USE_PINECONE or rag_index is None:
         return {
-            "error": "Retrieval via Pinecone is disabled. Enable USE_PINECONE=true to use /query."
+            "user_id": user_id,
+            "doc_id": doc_id,
+            "response": response
         }
-
-    query_emb = embed_texts_batch([question])[0]
-    retrieved_doc_texts = retrieve_top_k_pinecone(query_emb, rag_index, k=5, filter_dict={"user_id":{"$eq":user_id}, "doc_id":{"$eq":doc_id}})
-    retrieved_rulebook_texts = retrieve_top_k_pinecone(query_emb, rulebook_index, k=5) if rulebook_index else []
-
-    doc_context_str = "\n\n".join(retrieved_doc_texts)
-    rulebook_context_str = "\n\n".join(retrieved_rulebook_texts)
-
-    prompt = f"""
-You are a factual legal assistant. Your answers **MUST** be based *ONLY* on the provided "Document context" and "Rulebook context". Do not add outside knowledge or assumptions.
-
-Tasks:
-1.  **Answer the Question:** Based *strictly* on the provided context, answer the user's question in simple, clear language.
-    * **Prioritize "Document context".**
-    * Use "Rulebook context" ONLY to clarify terms found in the document context. Mention this using "(Reference from rulebook)".
-    * If the answer is **NOT** found in EITHER context, you **MUST** respond *exactly*: "The provided document excerpts do not contain information to answer this question." and set source to "none". Do NOT attempt to answer from general knowledge.
-2.  **Generate Suggestions:** Create exactly 3 relevant follow-up questions a user might ask next, based *only* on the provided context.
-
-Output Format:
-Return **ONLY** a valid JSON object matching this structure EXACTLY:
-{{
-  "answer": "<Your concise answer based ONLY on context, or the specific 'not found' message>",
-  "source": "document | rulebook | none",
-  "suggested_questions": ["Follow-up Question 1", "Follow-up Question 2", "Follow-up Question 3"]
-}}
-
---- PROVIDED CONTEXT START ---
-Document context:
-{doc_context_str if doc_context_str else "No relevant document context found."}
-
-Rulebook context:
-{rulebook_context_str if rulebook_context_str else "No relevant rulebook context found."}
---- PROVIDED CONTEXT END ---
-
-User Question:
-{question}
-"""
-    response_data = generate_json_from_gemini(prompt)
-
-    # Validate response structure (optional but recommended)
-    if not isinstance(response_data, dict) or not all(k in response_data for k in ["answer", "source", "suggested_questions"]):
-         print(f"Warning: Gemini returned malformed JSON for query: {question}. Raw: {response_data}")
-         response_data = {
-             "answer": "There was an issue generating the response. Please try rephrasing your question.",
-             "source": "none",
-             "suggested_questions": []
-         }
-
-    return {
-        "response_json": response_data,
-        "retrieved_clauses_doc_count": len(retrieved_doc_texts),
-        "retrieved_clauses_rulebook_count": len(retrieved_rulebook_texts),
-        "DEBUG_DOC_CONTEXT": retrieved_doc_texts,
-        "DEBUG_RULEBOOK_CONTEXT": retrieved_rulebook_texts
-    }
+    except Exception as e:
+        return {"error": str(e)}
 
 @app.post("/batch_pipeline")
 async def batch_pipeline(doc_id: str = Form(...), user_id: str = Form(...)):
-    # Verify document exists before proceeding
     if not fetch_doc_chunks(user_id, doc_id):
         raise HTTPException(status_code=404, detail="Document not found. Please upload first.")
 
@@ -391,16 +666,15 @@ async def batch_pipeline(doc_id: str = Form(...), user_id: str = Form(...)):
         "clauses": clauses_resp.get("clauses_json", {}),
         "risks": risks_resp.get("risks", {})
     }
-    save_processed_data(user_id, doc_id, "full_analysis", full_data)
 
+    save_processed_data(user_id, doc_id, "full_analysis", full_data)
     return full_data
 
+
+    
+###Might throw error in /batch and gen-report - update not now
 @app.post("/generate-report")
 async def generate_report_endpoint(request_data: dict):
-    """
-    Receives the full analysis JSON (result of /batch_pipeline)
-    and returns a PDF file download.
-    """
     try:
         pdf_bytes = create_pdf_from_json(request_data)
         return StreamingResponse(
@@ -411,6 +685,8 @@ async def generate_report_endpoint(request_data: dict):
     except Exception as e:
         print(f"Failed to generate report: {e}")
         return {"error": "Failed to generate PDF report."}, 500
+
+
 
 @app.post("/generate-questions")
 async def generate_questions(doc_id: str = Form(...), user_id: str = Form(...)):
@@ -459,6 +735,10 @@ async def view_chunks(doc_id: str, user_id: str):
         "user_id": user_id,
         "chunks": [{"chunk_id": c.get("chunk_id"), "content": c.get("content")} for c in chunks]
     }
+
+
+
+
 
 @app.get("/")
 def read_root():
