@@ -1,443 +1,455 @@
-<!-- <!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Risk Report - {{ doc_id | default('Contract Report') }}</title>
-    <style>
-        /* Note: Web-hosted fonts are used for simplicity. For production stability, embed them in your Docker image. */
-        @font-face {
-            font-family: 'Gentium';
-            src: url(https://fonts.gstatic.com/s/gentiumbasic/v15/WnzjFeGQQVlH3VqbK1M-lgs0vBw7a-GP.woff2);
-        }
-        @font-face {
-            font-family: 'Gentium';
-            font-weight: bold;
-            src: url(https://fonts.gstatic.com/s/gentiumbasic/v15/WnzgFeGQQVlH3VqbK1M-ljsWAtv8d-Y8aFE.woff2);
-        }
-        
-        /* ========================================================= */
-        /* --- 1. RUNNING ELEMENTS & FOOTER STYLING (The Multi-Page Fix) --- */
-        @page {
-            size: A4;
-            margin-bottom: 70pt; /* Increased margin to fit footer content */
-            
-            /* Place the branding stamp on the bottom right (PURPLE) */
-            @bottom-right {
-                content: element(doculex-stamp);
-                font-weight: bold;
-                color: #663399; /* Deep Purple Color */
-            }
-            
-            /* Place the page number in the center */
-            @bottom-center {
-                content: counter(page);
-                font-size: 9pt;
-                color: #555;
-            }
-        }
-
-        /* Define the element that will be used as the running stamp/logo */
-        #doculex-stamp {
-            position: running(doculex-stamp);
-            padding-top: 5pt;
-        }
-        /* ========================================================= */
-
-
-        /* --- 2. BASE STYLING --- */
-        body {
-            font-family: 'Gentium', 'Times New Roman', serif;
-            margin: 0;
-            padding: 0;
-            color: #333;
-        }
-        .container {
-            width: 90%;
-            margin: 0 auto;
-            padding: 20px;
-            padding-bottom: 70pt; /* Ensure main content doesn't overlap footer area */
-        }
-        h1 {
-            color: #2c3e50;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 10px;
-        }
-        h2 {
-            color: #34495e;
-            border-bottom: 1px solid #bdc3c7;
-            padding-bottom: 5px;
-            margin-top: 30px;
-        }
-        /* --- Risk Bar and Gauge Styling --- */
-        .gauge-container {
-            display: flex;
-            justify-content: space-around;
-            text-align: center;
-            margin: 30px 0;
-        }
-        .risk-bar-wrapper {
-            margin: 20px auto 40px auto;
-            width: 90%;
-        }
-        .risk-bar-title {
-            text-align: left; 
-            margin-bottom: 5px; 
-            font-weight: bold; 
-            color: #34495e;
-            font-size: 16px;
-        }
-        .risk-bar-container {
-            width: 100%;
-            background: #e0e0e0;
-            height: 35px;
-            border-radius: 5px;
-            overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1) inset;
-        }
-        .risk-bar-fill {
-            height: 100%;
-            display: flex;
-            align-items: center;
-            justify-content: flex-end;
-            padding-right: 10px;
-            font-weight: bold;
-            color: #fff;
-            box-sizing: border-box;
-        }
-        /* --- Data Section Styling --- */
-        .clause-item {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #fdfdfd;
-            border-left: 5px solid #bdc3c7;
-        }
-        .clause-item strong {
-            color: #2c3e50;
-        }
-        .risk-list p {
-            padding: 8px;
-            border-bottom: 1px dotted #ccc;
-        }
-        .risk-list.high p { border-left: 3px solid #e74c3c; background: #fbeeeC; }
-        .risk-list.medium p { border-left: 3px solid #f39c12; background: #fef9e7; }
-        .risk-list.low p { border-left: 3px solid #2ecc71; background: #eafaf1; }
-        .key-terms ul {
-            list-style-type: none;
-            padding-left: 0;
-            display: flex;
-            flex-wrap: wrap;
-        }
-        .key-terms li {
-            background: #ecf0f1;
-            color: #34495e;
-            padding: 5px 10px;
-            border-radius: 4px;
-            margin: 4px;
-            font-size: 14px;
-        }
-    </style>
-</head>
-<body>
-    
-    <div id="doculex-stamp">
-        DocuLex AI
-    </div>
-
-    <div class="container">
-        <h1>Contract Risk Report</h1>
-        <p class="doc-id">Document ID: {{ doc_id | default('N/A') }}</p>
-
-        <div class="risk-bar-wrapper">
-            <div class="risk-bar-title">Overall Risk Score: Mid + High Risk Exposure</div>
-            <div class="risk-bar-container">
-                <div class="risk-bar-fill" style="width: {{ danger_score_pct }}%; 
-                                                background-color: {{ bar_color }};">
-                    {{ danger_score_pct | default(0) }}%
-                </div>
-            </div>
-        </div>
-        
-
-        <h2>Risk Breakdown</h2>
-        <div class="gauge-container">
-            <div>
-                <img src="data:image/png;base64,{{ high_gauge_src }}" 
-                     alt="High Risk Gauge" 
-                     style="width:150px; height:150px; display:block;"/>
-            </div>
-            <div>
-                <img src="data:image/png;base64,{{ medium_gauge_src }}" 
-                     alt="Medium Risk Gauge" 
-                     style="width:150px; height:150px; display:block;"/>
-            </div>
-            <div>
-                <img src="data:image/png;base64,{{ low_gauge_src }}" 
-                     alt="Low Risk Gauge" 
-                     style="width:150px; height:150px; display:block;"/>
-            </div>
-        </div>
-        
-
-        <h2>Document Summary</h2>
-        <p>{{ summary_text | default('No summary text was extracted.') }}</p>
-
-        <div class="key-terms">
-            <h3>Key Terms</h3>
-            <ul>
-                {% if key_terms %}
-                    {% for term in key_terms %}
-                        <li>{{ term | default('') }}</li>
-                    {% endfor %}
-                {% else %}
-                    <li>No key terms found.</li>
-                {% endif %}
-            </ul>
-        </div>
-
-        <h2>Top Risk Clauses</h2>
-        
-        <h3>High Risk ({{ risks.counts.High | default(0) }})</h3>
-        <div class="risk-list high">
-            {% for clause in risks.top_clauses.High | default([]) %}
-                <p>{{ clause | default('Clause text missing.') }}</p>
-            {% else %}
-                <p>No high-risk clauses identified.</p>
-            {% endfor %}
-        </div>
-
-        <h3>Medium Risk ({{ risks.counts.Medium | default(0) }})</h3>
-        <div class="risk-list medium">
-            {% for clause in risks.top_clauses.Medium | default([]) %}
-                <p>{{ clause | default('Clause text missing.') }}</p>
-            {% else %}
-                <p>No medium-risk clauses identified.</p>
-            {% endfor %}
-        </div>
-        
-        <h3>Low Risk ({{ risks.counts.Low | default(0) }})</h3>
-        <div class="risk-list low">
-            {% for clause in risks.top_clauses.Low | default([]) %}
-                <p>{{ clause | default('Clause text missing.') }}</p>
-            {% else %}
-                <p>No low-risk clauses identified.</p>
-            {% endfor %}
-        </div>
-
-
-        <h2>Key Clause Analysis</h2>
-        {% if top_clauses %}
-            {% for item in top_clauses %}
-                <div class="clause-item">
-                    <p><strong>Clause:</strong> {{ item.clause | default('Clause text missing.') }}</p>
-                    <p><strong>Explanation:</strong> {{ item.explanation | default('No explanation provided.') }}</p>
-                </div>
-            {% endfor %}
-        {% else %}
-            <p>No detailed key clauses were extracted for analysis.</p>
-        {% endif %}
-
-    </div>
-</body>
-</html> -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
+    <meta charset="UTF-8" />
     <title>Risk Report - {{ doc_id | default('Contract Report') }}</title>
-    <style>
-        /* Note: Web-hosted fonts are used for simplicity. For production stability, embed them in your Docker image. */
-        @font-face {
-            font-family: 'Gentium';
-            src: url(https://fonts.gstatic.com/s/gentiumbasic/v15/WnzjFeGQQVlH3VqbK1M-lgs0vBw7a-GP.woff2);
-        }
-        @font-face {
-            font-family: 'Gentium';
-            font-weight: bold;
-            src: url(https://fonts.gstatic.com/s/gentiumbasic/v15/WnzgFeGQQVlH3VqbK1M-ljsWAtv8d-Y8aFE.woff2);
-        }
 
-        /* ========================================================= */
-        /* --- 1. RUNNING ELEMENTS & FOOTER STYLING --- */
+    <!-- Professional fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@700;900&display=swap" rel="stylesheet">
+
+    <style>
         @page {
             size: A4;
-            margin-bottom: 70pt; /* Increased margin to fit footer content */
-
-            /* Place the branding stamp on the bottom right (PURPLE) */
-            @bottom-right {
-                content: element(doculex-stamp);
-                font-weight: bold;
-                color: #663399; /* Deep Purple Color */
-            }
-
-            /* Place the page number in the center */
-            @bottom-center {
-                content: counter(page);
-                font-size: 9pt;
-                color: #555;
-            }
+            margin: 28mm 18mm 28mm 18mm;
+            margin-bottom: 70pt;
+            @bottom-right { content: element(doculex-stamp); font-weight: 700; color: #5b2e8a; }
+            @bottom-center { content: counter(page); font-size: 9pt; color: #666; }
         }
 
-        /* Define the element that will be used as the running stamp/logo */
+        /* Running stamp for footer */
         #doculex-stamp {
             position: running(doculex-stamp);
-            padding-top: 5pt;
+            padding-top: 4pt;
+            font-family: "Merriweather", Georgia, serif;
+            font-size: 10pt;
+            color: #5b2e8a;
+            letter-spacing: 0.3px;
         }
-        /* ========================================================= */
 
+        :root {
+            --accent: #2b7cff;
+            --muted: #64748b;
+            --paper-bg: #ffffff;
+            --card-bg: #f8fafc;
+            --danger: #dc2626;
+            --warn: #f59e0b;
+            --safe: #16a34a;
+            --text-primary: #0f172a;
+            --text-secondary: #334155;
+            --border-light: #e2e8f0;
+            --border-subtle: #f1f5f9;
+        }
 
-        /* --- 2. BASE STYLING & TYPOGRAPHY --- */
-        body {
-            font-family: 'Gentium', 'Times New Roman', serif;
+        * {
+            box-sizing: border-box;
+        }
+
+        html, body {
             margin: 0;
             padding: 0;
-            color: #333;
-        }
-        .container {
-            width: 90%;
-            margin: 0 auto;
-            padding: 20px;
-            padding-bottom: 70pt; /* Ensure main content doesn't overlap footer area */
-        }
-        h1 {
-            color: #2c3e50;
-            border-bottom: 2px solid #3498db;
-            padding-bottom: 10px;
-        }
-        h2 {
-            color: #34495e;
-            border-bottom: 1px solid #bdc3c7;
-            padding-bottom: 5px;
-            margin-top: 30px;
+            background: var(--paper-bg);
+            font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif;
+            color: var(--text-primary);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+            font-feature-settings: "kern" 1, "liga" 1;
+            line-height: 1.6;
         }
 
-        /* --- PROFESSIONAL SUMMARY PARAGRAPH STYLE --- */
-        .summary-body {
-            text-align: justify;
+        .container {
+            width: 100%;
+            max-width: 1100px;
+            margin: 0 auto;
+            padding: 32px 40px 100px 40px;
+        }
+
+        /* Header */
+        .report-header {
+            display: block;
+            margin-bottom: 40px;
+            padding-bottom: 24px;
+            border-bottom: 2px solid var(--border-light);
+        }
+
+        .report-title {
+            margin-bottom: 24px;
+        }
+
+        h1 {
+            font-family: "Merriweather", Georgia, serif;
+            font-size: 32pt;
+            font-weight: 900;
+            margin: 0 0 12px 0;
+            color: var(--text-primary);
+            line-height: 1.2;
+            letter-spacing: -0.5px;
+        }
+
+        .subtitle {
+            font-size: 12pt;
+            font-weight: 500;
+            color: var(--muted);
+            margin: 0;
+            letter-spacing: 0.2px;
+            line-height: 1.5;
+        }
+
+        /* Meta */
+        .report-meta {
+            text-align: right;
+            min-width: 240px;
+            flex-shrink: 0;
+        }
+
+        .meta-item {
+            font-size: 10.5pt;
+            color: var(--text-secondary);
+            margin: 10px 0;
+            line-height: 1.6;
+        }
+
+        .meta-item .label {
+            display: block;
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 9.5pt;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 4px;
+        }
+
+        /* Emphasized visible datetime */
+        .date-time-inline {
+            display: block;
             font-size: 11pt;
-            text-indent: 1.5em;
-            line-height: 1.8;
-            margin-bottom: 0;
+            color: var(--text-primary);
+            font-weight: 600;
+            letter-spacing: 0.2px;
+            line-height: 1.5;
+            word-wrap: break-word;
         }
-        /* --- CORRECTED DROP CAP STYLE (Simpler, No Float) --- */
-        .summary-body::first-letter {
-            font-size: 2.2em;
-            font-weight: bold;
-            color: #34495e;
-            margin-right: 0.05em;
-            line-height: 0.8;
-            vertical-align: -0.1em;
-            /* Removed float: left; */
+
+        .date-time-fallback {
+            display: none;
         }
-        /* --- RISK BAR AND GAUGE STYLING --- */
-        .gauge-container {
-            display: flex;
-            justify-content: space-around;
-            text-align: center;
-            margin: 30px 0;
-        }
+
+        /* Risk bar */
         .risk-bar-wrapper {
-            margin: 20px auto 40px auto;
-            width: 90%;
+            margin: 32px 0 40px 0;
+            padding: 24px;
+            background: var(--card-bg);
+            border-radius: 12px;
+            border: 1px solid var(--border-light);
         }
+
         .risk-bar-title {
-            text-align: left;
-            margin-bottom: 5px;
-            font-weight: bold;
-            color: #34495e;
-            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
+            font-size: 13pt;
+            margin-bottom: 16px;
+            letter-spacing: 0.2px;
         }
+
         .risk-bar-container {
             width: 100%;
-            background: #e0e0e0; /* Gray background for the empty part */
-            height: 35px;
-            border-radius: 5px;
+            background: linear-gradient(180deg, #f1f5f9, #e2e8f0);
+            height: 48px;
+            border-radius: 10px;
             overflow: hidden;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1) inset;
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: inset 0 2px 4px rgba(0, 0, 0, 0.04);
         }
+
         .risk-bar-fill {
             height: 100%;
             display: flex;
             align-items: center;
             justify-content: flex-end;
-            padding-right: 10px;
-            font-weight: bold;
+            padding-right: 20px;
+            font-weight: 700;
+            font-size: 13pt;
             color: #fff;
-            box-sizing: border-box;
-            /* WIDTH and COLOR are set by Python variables */
+            transition: width 0.6s ease;
+            letter-spacing: 0.3px;
         }
-        /* --- DATA SECTION STYLING --- */
-        .clause-item {
-            margin-bottom: 20px;
-            padding: 15px;
-            background: #fdfdfd;
-            border-left: 5px solid #bdc3c7;
+
+        /* Gauges */
+        .gauge-container {
+            display: flex;
+            justify-content: flex-start;
+            gap: 28px;
+            align-items: center;
+            margin-bottom: 40px;
         }
-        .clause-item strong {
-            color: #2c3e50;
+
+        .gauge-box {
+            width: 180px;
+            text-align: center;
+            font-size: 10.5pt;
+            font-weight: 600;
+            color: var(--text-secondary);
+            letter-spacing: 0.3px;
         }
-        .risk-list p {
-            padding: 8px;
-            border-bottom: 1px dotted #ccc;
+
+        .gauge-box img {
+            display: block;
+            margin: 0 auto 10px auto;
+            width: 100%;
+            height: auto;
+            max-width: 170px;
         }
-        .risk-list.high p { border-left: 3px solid #e74c3c; background: #fbeeeC; }
-        .risk-list.medium p { border-left: 3px solid #f39c12; background: #fef9e7; }
-        .risk-list.low p { border-left: 3px solid #2ecc71; background: #eafaf1; }
+
+        /* Section Headers */
+        h2 {
+            font-size: 16pt;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin: 40px 0 20px 0;
+            padding-bottom: 12px;
+            border-bottom: 2px solid var(--border-light);
+            letter-spacing: 0.2px;
+        }
+
+        h3 {
+            font-size: 12pt;
+            font-weight: 600;
+            color: var(--text-primary);
+            margin: 24px 0 12px 0;
+            letter-spacing: 0.3px;
+        }
+
+        /* Content */
+        .summary-body {
+            text-align: justify;
+            font-size: 11.5pt;
+            line-height: 1.8;
+            color: var(--text-secondary);
+            margin: 0 0 20px 0;
+            font-weight: 400;
+        }
+
+        .key-terms {
+            margin-top: 24px;
+            padding: 20px;
+            background: var(--card-bg);
+            border-radius: 10px;
+            border: 1px solid var(--border-light);
+        }
+
+        .key-terms h3 {
+            margin: 0 0 12px 0;
+            font-size: 12pt;
+            color: var(--text-primary);
+        }
+
         .key-terms ul {
-            list-style-type: none;
-            padding-left: 0;
+            list-style: none;
+            padding: 0;
+            margin: 0;
             display: flex;
             flex-wrap: wrap;
+            gap: 10px;
         }
+
         .key-terms li {
-            background: #ecf0f1;
-            color: #34495e;
-            padding: 5px 10px;
-            border-radius: 4px;
-            margin: 4px;
-            font-size: 14px;
+            background: #eff6ff;
+            color: #1e40af;
+            padding: 8px 14px;
+            border-radius: 8px;
+            font-size: 10.5pt;
+            font-weight: 500;
+            border: 1px solid #dbeafe;
+            letter-spacing: 0.2px;
+            transition: all 0.2s ease;
+        }
+
+        .key-terms li:hover {
+            background: #dbeafe;
+            transform: translateY(-1px);
+        }
+
+        /* Risk Lists */
+        .risk-list {
+            margin-top: 16px;
+            border-radius: 10px;
+            overflow: hidden;
+            background: white;
+            border: 1px solid var(--border-light);
+        }
+
+        .risk-list p {
+            padding: 14px 18px;
+            margin: 0;
+            border-bottom: 1px solid var(--border-subtle);
+            font-size: 11pt;
+            line-height: 1.7;
+            color: var(--text-secondary);
+            font-weight: 400;
+        }
+
+        .risk-list p:last-child {
+            border-bottom: none;
+        }
+
+        .risk-list.high p {
+            border-left: 5px solid var(--danger);
+            background: linear-gradient(90deg, #fef2f2 0%, #ffffff 100%);
+        }
+
+        .risk-list.medium p {
+            border-left: 5px solid var(--warn);
+            background: linear-gradient(90deg, #fffbeb 0%, #ffffff 100%);
+        }
+
+        .risk-list.low p {
+            border-left: 5px solid var(--safe);
+            background: linear-gradient(90deg, #f0fdf4 0%, #ffffff 100%);
+        }
+
+        /* Clause Items */
+        .clause-item {
+            margin: 20px 0;
+            padding: 20px 24px;
+            background: var(--card-bg);
+            border-left: 5px solid #60a5fa;
+            border-radius: 10px;
+            font-size: 11pt;
+            line-height: 1.7;
+            color: var(--text-secondary);
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            transition: all 0.2s ease;
+        }
+
+        .clause-item:hover {
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.07);
+            transform: translateY(-1px);
+        }
+
+        .clause-item p {
+            margin: 0;
+        }
+
+        .clause-item p + p {
+            margin-top: 12px;
+        }
+
+        .clause-item strong {
+            color: var(--text-primary);
+            font-weight: 700;
+            font-size: 10.5pt;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            display: inline-block;
+            margin-bottom: 4px;
+        }
+
+        .spacer {
+            height: 20px;
+        }
+
+        /* Footer */
+        .audit-footer {
+            font-size: 9pt;
+            color: var(--muted);
+            text-align: right;
+            margin-top: 32px;
+            padding-top: 16px;
+            border-top: 1px solid var(--border-subtle);
+            font-weight: 400;
+        }
+
+        /* Responsive */
+        @media screen and (max-width: 768px) {
+            .container {
+                padding: 24px 20px 80px 20px;
+            }
+
+            .report-header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 16px;
+                margin-bottom: 32px;
+            }
+
+            .report-meta {
+                text-align: left;
+                min-width: auto;
+            }
+
+            h1 {
+                font-size: 24pt;
+            }
+
+            .gauge-container {
+                flex-direction: column;
+                align-items: stretch;
+                gap: 20px;
+            }
+
+            .gauge-box {
+                width: 100%;
+            }
+
+            .risk-bar-wrapper {
+                padding: 20px;
+            }
+        }
+
+        @media print {
+            .container {
+                max-width: 100%;
+            }
+
+            .clause-item:hover {
+                transform: none;
+                box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+            }
         }
     </style>
 </head>
 <body>
-
-    <div id="doculex-stamp">
-        DocuLex AI
-    </div>
+    <div id="doculex-stamp">DocuLex AI</div>
 
     <div class="container">
-        <h1>Contract Risk Report</h1>
-        <p class="doc-id">Document ID: {{ doc_id | default('N/A') }}</p>
+        <div class="report-header">
+            <div class="report-title">
+                <h1>Risk Report</h1>
+                <div 
+                class="subtitle">Automated analysis
+                    <div class="meta-item">
+                    <span class="label">Generated on:</span>
+                    <div class="date-time-inline">{{ current_ist_time | default('Not available') }}</div>
+                </div>
+                </div>
+            </div>
+
+            
+        </div>
 
         <div class="risk-bar-wrapper">
             <div class="risk-bar-title">Overall Risk Score: Mid + High Risk Exposure</div>
-            <div class="risk-bar-container">
-                <div class="risk-bar-fill" style="width: {{ danger_score_pct }}%;
-                                                background-color: {{ bar_color }};">
+            <div class="risk-bar-container" role="progressbar" aria-valuenow="{{ danger_score_pct }}" aria-valuemin="0" aria-valuemax="100">
+                <div class="risk-bar-fill" style="width: {{ danger_score_pct | default(0) }}%; background-color: {{ bar_color | default('#2b7cff') }};">
                     {{ danger_score_pct | default(0) }}%
                 </div>
             </div>
         </div>
 
-
         <h2>Risk Breakdown</h2>
         <div class="gauge-container">
-            <div>
-                <img src="data:image/png;base64,{{ high_gauge_src }}"
-                     alt="High Risk Gauge"
-                     style="width:150px; height:150px; display:block;"/>
+            <div class="gauge-box">
+                <img src="data:image/png;base64,{{ high_gauge_src }}" alt="High Risk Gauge" />
+                <div>High Risk</div>
             </div>
-            <div>
-                <img src="data:image/png;base64,{{ medium_gauge_src }}"
-                     alt="Medium Risk Gauge"
-                     style="width:150px; height:150px; display:block;"/>
+            <div class="gauge-box">
+                <img src="data:image/png;base64,{{ medium_gauge_src }}" alt="Medium Risk Gauge" />
+                <div>Medium Risk</div>
             </div>
-            <div>
-                <img src="data:image/png;base64,{{ low_gauge_src }}"
-                     alt="Low Risk Gauge"
-                     style="width:150px; height:150px; display:block;"/>
+            <div class="gauge-box">
+                <img src="data:image/png;base64,{{ low_gauge_src }}" alt="Low Risk Gauge" />
+                <div>Low Risk</div>
             </div>
         </div>
-
 
         <h2>Document Summary</h2>
         <p class="summary-body">{{ summary_text | default('No summary text was extracted.') }}</p>
@@ -458,7 +470,7 @@
         <h2>Top Risk Clauses</h2>
 
         <h3>High Risk ({{ risks.counts.High | default(0) }})</h3>
-        <div class="risk-list high">
+        <div class="risk-list high" role="list">
             {% for clause in risks.top_clauses.High | default([]) %}
                 <p>{{ clause | default('Clause text missing.') }}</p>
             {% else %}
@@ -484,7 +496,6 @@
             {% endfor %}
         </div>
 
-
         <h2>Key Clause Analysis</h2>
         {% if top_clauses %}
             {% for item in top_clauses %}
@@ -494,9 +505,14 @@
                 </div>
             {% endfor %}
         {% else %}
-            <p>No detailed key clauses were extracted for analysis.</p>
+            <p class="summary-body">No detailed key clauses were extracted for analysis.</p>
         {% endif %}
 
+        <div class="spacer"></div>
+
+        <p class="audit-footer">
+            Generated on: {{ current_ist_time | default('Not available') }}
+        </p>
     </div>
 </body>
 </html>

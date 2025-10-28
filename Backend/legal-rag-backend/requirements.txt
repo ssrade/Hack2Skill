@@ -25,6 +25,7 @@ requests
 langchain-text-splitters
 weasyprint
 jinja2
+pytz
 matplotlib
 vertexai
 google-cloud-aiplatform

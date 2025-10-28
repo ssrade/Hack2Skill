@@ -132,6 +132,21 @@ env = Environment(
     loader=FileSystemLoader(template_dir),
     autoescape=select_autoescape(['html', 'xml'])
 )
+from datetime import datetime
+import pytz
+
+from datetime import datetime
+import pytz
+
+from datetime import datetime
+import pytz
+
+def get_ist_datetime():
+    """Return current IST date and time as a string."""
+    ist = pytz.timezone('Asia/Kolkata')
+    now = datetime.now(ist)
+    return now.strftime("%d/%m/%Y, %I:%M:%S %p IST")
+
 
 def create_gauge_base64(value, total, color, label):
     """
@@ -238,6 +253,7 @@ def create_pdf_from_json(data: dict) -> bytes:
         template = env.get_template('template.html')
 
         context = {
+            "current_ist_time": get_ist_datetime(),
             "doc_id": data.get('doc_id', 'N/A'),
             "summary_text": summary_nested_json.get('summary', 'No summary provided.'),
             "key_terms": summary_nested_json.get('key_terms', []),
@@ -258,3 +274,7 @@ def create_pdf_from_json(data: dict) -> bytes:
     except Exception:
         # Re-raise the exception for FastAPI
         raise
+
+
+
+
