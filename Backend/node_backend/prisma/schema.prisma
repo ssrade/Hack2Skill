@@ -1,0 +1,145 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id              String        @id @default(uuid())
+  name            String
+  email           String        @unique
+  passwordHash    String
+  profilePhoto    String?
+  role            UserRole      @default(USER)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  agreements      Agreement[]
+  chatSessions    ChatSession[]
+  preferences     UserPreference?
+  usageRecords    TokenUsage[]
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+model UserPreference {
+  id             String       @id @default(uuid())
+  userId         String       @unique
+  preferredModel GeminiModel  @default(GEMINI_1_5_PRO)
+  darkMode       Boolean      @default(false)
+  notifications  Boolean      @default(true)
+
+  user           User         @relation(fields: [userId], references: [id])
+}
+
+enum GeminiModel {
+  GEMINI_1_5_FLASH
+  GEMINI_1_5_PRO
+  GEMINI_2_FLASH
+  GEMINI_2_PRO
+}
+
+model Agreement {
+  id              String          @id @default(uuid())
+  userId          String
+  docId           String?         // d629beed-b2d3-47b7-b181-7864ea996af7
+
+  title           String
+  description     String?
+
+  gcpFileUrl      String
+  uploadDate      DateTime        @default(now())
+  status          AgreementStatus @default(PENDING)
+
+  // STORE FULL AI ANALYSIS
+  summaryJson     Json?           // Contains full summary + key_terms
+  clausesJson     Json?           // Store total_clauses, top_clauses[], all_clauses[]
+  risksJson       Json?           // Store risk breakdown: High, Medium, Low + top clauses
+  maskingJson     Json?
+
+  analysisMode    AnalysisMode?
+  processedAt     DateTime?
+  threadId        String?
+
+  user            User            @relation(fields: [userId], references: [id])
+  chatSessions    ChatSession[]
+  revisions       AgreementRevision[]
+
+  createdAt       DateTime        @default(now())
+}
+
+
+enum AnalysisMode {
+  SIMPLER
+  EXPERT
+}
+
+enum AgreementStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+}
+
+model AgreementRevision {
+  id              String     @id @default(uuid())
+  agreementId     String
+  version         Int
+  updatedAt       DateTime   @default(now())
+  notes           String?
+  riskAssessment  String?
+  keyClausesJson  Json?
+
+  agreement       Agreement  @relation(fields: [agreementId], references: [id])
+}
+
+model ChatSession {
+  id              String        @id @default(uuid())
+  userId          String
+  agreementId     String?
+  startedAt       DateTime      @default(now())
+  endedAt         DateTime?
+  title           String?
+  isActive        Boolean       @default(true)
+
+  user            User          @relation(fields: [userId], references: [id])
+  agreement       Agreement?    @relation(fields: [agreementId], references: [id])
+  messages        ChatMessage[]
+  usageRecords    TokenUsage[]
+}
+
+model ChatMessage {
+  id              String       @id @default(uuid())
+  chatSessionId   String
+  sender          MessageSender
+  content         String
+  createdAt       DateTime     @default(now())
+  modelUsed       GeminiModel?
+  metadata        Json?
+
+  chatSession     ChatSession  @relation(fields: [chatSessionId], references: [id])
+}
+
+enum MessageSender {
+  USER
+  ASSISTANT
+}
+
+model TokenUsage {
+  id              String       @id @default(uuid())
+  userId          String
+  chatSessionId   String?
+  modelUsed       GeminiModel
+  tokensUsed      Int
+  timestamp       DateTime     @default(now())
+
+  user            User         @relation(fields: [userId], references: [id])
+  chatSession     ChatSession? @relation(fields: [chatSessionId], references: [id])
+}

@@ -4,7 +4,9 @@ import re
 import json
 import uuid
 from dotenv import load_dotenv
+from typing import Dict, Optional
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from google.cloud import documentai
 from vertexai.generative_models import GenerativeModel
@@ -35,6 +37,7 @@ from utils.pdf_extraction import extract_text_from_pdf
 from utils.firestore_utils import save_processed_data, get_processed_data
 from utils.chunker import chunk_text
 from utils.pdf_generator.pdf_gen import create_pdf_from_json
+from utils.masking_pdf import mask_pdf
 #from utils.vertex_rag import upload_to_vertex_rag
 
 import os, tempfile, shutil, uuid, traceback
@@ -53,7 +56,12 @@ import os
 from rag.prepare_corpus_and_data import initialize_vertex_ai 
 from rag.agent import root_agent
 
+#immport the masking route
+from utils.masking_pdf import router as pii_mask_router 
+
 app = FastAPI()
+
+app.include_router(pii_mask_router, prefix="/node_helper")
 
 aiplatform.init(project=config.PROJECT_ID, location=config.VERTEX_AI_LOCATION)
 CORPUS_NAME = "legal-rag-corpus"
@@ -186,167 +194,201 @@ app = FastAPI(title="Legal RAG Backend", lifespan=lifespan)
 
 # --- Endpoints ---
 
+UPLOAD_DIR = "uploads/masked_docs"
+
 @app.post("/upload")
-async def upload_doc(file: UploadFile = File(...), doc_type: str = Form(...), user_id: str = Form(...)):
-    if file.content_type != "application/pdf":
-        raise HTTPException(status_code=400, detail="Invalid file type. Upload a PDF.")
+async def upload_doc(file_name: str, doc_type: str, user_id: str):
+    
+    # Build full path from filename
+    file_path = os.path.join(UPLOAD_DIR, file_name)
 
-    content = await file.read()
+    # Validate file existence
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=400, detail="File not found in uploads folder.")
 
+    # Validate type
+    if not file_name.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Only PDF files allowed.")
+
+    # Read file contents
+    with open(file_path, "rb") as f:
+        content = f.read()
+
+    # Select parsing method based on type
     if doc_type.lower() == "electronic":
-        text = extract_text_from_pdf(None, None, content, method="pymupdf", skip_keywords=SKIP_KEYWORDS)
+        text = extract_text_from_pdf(
+            None, None, content,
+            method="pymupdf",
+            skip_keywords=SKIP_KEYWORDS
+        )
     elif doc_type.lower() == "scanned":
-        text = extract_text_from_pdf(documentai_client, processor_name, content, method="document_ai", skip_keywords=SKIP_KEYWORDS)
+        text = extract_text_from_pdf(
+            documentai_client,
+            processor_name,
+            content,
+            method="document_ai",
+            skip_keywords=SKIP_KEYWORDS
+        )
     else:
-        raise HTTPException(status_code=400, detail="doc_type must be 'scanned' or 'electronic'.")
+        raise HTTPException(status_code=400, detail="doc_type must be 'scanned' or 'electronic'")
 
     print(f"\n[PARSER DEBUG] Extracted Text Length: {len(text)} characters.")
     print(f"[PARSER DEBUG] Text Starts With: {text[:300]}...\n")
 
-    # chunk_text returns list[dict] with 'chunk_id', 'content', 'type'
+    # Chunk extracted text
     chunks = chunk_text(text, chunk_size=1500, chunk_overlap=200)
+    chunk_texts = [
+        c["content"] if isinstance(c, dict) and "content" in c
+        else str(c)
+        for c in chunks
+    ]
 
-    # Extract plain text list for embeddings / LLM usage
-    chunk_texts = [c["content"] if isinstance(c, dict) and "content" in c else str(c) for c in chunks]
+    # Create doc_id
+    doc_id = str(uuid.uuid4())
 
-    
-    # If embeddings / Pinecone enabled -> embed & upsert
-    if USE_PINECONE:
-        try:
-            embeddings = embed_texts_batch(chunk_texts)
-        except Exception as e:
-            # log and re-raise to make failure explicit
-            print(f"[EMBEDDING ERROR] Failed to create embeddings: {e}")
-            raise
-
-        doc_id = str(uuid.uuid4())
-        vectors = [
-            {
-                "id": f"{user_id}_{doc_id}_chunk_{i}",
-                "values": emb,
-                "metadata": {"user_id": user_id, "doc_id": doc_id, "chunk_id": i, "snippet": chunk_texts[i][:150]},
-            }
-            for i, emb in enumerate(embeddings)
-        ]
-
-        if vectors:
-            try:
-                rag_index.upsert(vectors=vectors)
-                print(f"[PINECONE] SUCCESS: Upserted {len(vectors)} vectors to RAG Index.")
-            except Exception as e:
-                # log but do not block storing chunks locally
-                print(f"[PINECONE] ERROR: Failed to upsert vectors: {e}")
-    else:
-        # create doc_id even when not using Pinecone
-        doc_id = str(uuid.uuid4())
-
-    # Store chunks in Firestore as list of dicts with 'content' (consistent shape)
+    # Normalize chunk storage
     store_chunks = []
-    # If original chunk_texts length differs, fallback to chunk_texts
-    if chunks and isinstance(chunks[0], dict) and "content" in chunks[0]:
-        # normalize each chunk to {"content": <str>}
+    if chunks and isinstance(chunks[0], dict):
         for c in chunks:
-            store_chunks.append({"content": str(c.get("content", "")), "chunk_id": c.get("chunk_id"), "type": c.get("type")})
+            store_chunks.append({
+                "content": c.get("content", ""),
+                "chunk_id": c.get("chunk_id"),
+                "type": c.get("type")
+            })
     else:
-        for i, txt in enumerate(chunk_texts):
-            store_chunks.append({"content": str(txt), "chunk_id": i})
+        for idx, txt in enumerate(chunk_texts):
+            store_chunks.append({"content": txt, "chunk_id": idx})
 
+    # Save in Firestore
     save_processed_data(user_id, doc_id, "full_text_chunks", store_chunks)
+    
+    try:
+        os.remove(file_path)
+        print(f"[CLEANUP] Deleted local file: {file_path}")
+    except Exception as e:
+        print(f"[WARNING] Could not delete file: {file_path} - {str(e)}")
 
-    return {"message": f"Document processed successfully ({len(store_chunks)} chunks).", "doc_id": doc_id}
-#################################################################################################################
+    return {
+        "message": f"Document processed successfully ({len(store_chunks)} chunks).",
+        "doc_id": doc_id,
+        "stored_file": file_path
+    }
+
 class RAGQueryRequest(BaseModel):
     query: str
 
 @app.post("/upload-rag")
 async def upload_doc_to_rag(
-    file: UploadFile = File(..., description="The PDF file to upload."), # Added description for Swagger UI
-    user_id: str = Form(..., description="Identifier for the user uploading the document.") # Added description
+    file: UploadFile = File(...),
+    user_id: str = Form(...),
+    doc_type: str = Form("electronic")
 ):
-    """
-    Receives a PDF file via form data and uploads it directly
-    to the configured Vertex AI RAG Corpus using rag.upload_file.
-    This endpoint uses the default parser provided by the RAG service.
-    """
-    # 1. Validate file type
     if not file.content_type or file.content_type != "application/pdf":
-        await file.close() # Close the file before raising exception
-        raise HTTPException(
-            status_code=400,
-            detail=f"Invalid file type ('{file.content_type}'). Only PDF ('application/pdf') is allowed."
-        )
+        await file.close()
+        raise HTTPException(status_code=400, detail="Only PDF files allowed.")
 
-    # 2. Get the target RAG Corpus name from environment variables
     corpus_resource_name = os.getenv("RAG_CORPUS")
     if not corpus_resource_name:
-        await file.close()
-        print("❌ ERROR: RAG_CORPUS environment variable not set.")
-        raise HTTPException(
-            status_code=500, # Internal Server Error
-            detail="Server configuration error: RAG_CORPUS environment variable not set. Run the setup script first."
-        )
-    print(f"Target RAG Corpus: ...{corpus_resource_name[-20:]}") # Log truncated name
-
-    temp_pdf_path = None # Initialize path variable
+        raise HTTPException(status_code=500, detail="RAG_CORPUS environment variable not set.")
+    
+    temp_pdf_path = None
+    
     try:
-        # 3. Save uploaded file to a temporary local path
-        # rag.upload_file needs a file path on the server's filesystem.
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_pdf:
-            # Efficiently copy the stream content to the temporary file
-            shutil.copyfileobj(file.file, temp_pdf)
-            temp_pdf_path = temp_pdf.name # Get the path of the saved temp file
-
-        print(f"Saved uploaded file temporarily to: {temp_pdf_path}")
-        # Ensure file pointer is reset if needed, though copyfileobj handles it
-        # file.file.seek(0) # Usually not needed after copyfileobj
-
-        # 4. Call the upload function (defined in prepare_corpus_and_data.py)
-        # Use original filename if available, otherwise generate a UUID-based name
         upload_display_name = file.filename if file.filename else f"upload_{uuid.uuid4()}.pdf"
+        content = await file.read()  # Read file content
         
-        rag_file_result = upload_pdf_to_corpus(
-            corpus_name=corpus_resource_name,
-            pdf_path=temp_pdf_path, # Path to the temporary local file
-            display_name=upload_display_name,
-            description=f"Uploaded by user '{user_id}' via API." # Example description
-        )
+        # ✅ Extract text for storage (regardless of upload type)
+        if doc_type.lower() == "scanned":
+            extracted_text = extract_text_from_pdf(
+                documentai_client, 
+                processor_name, 
+                content, 
+                method="document_ai", 
+                skip_keywords=SKIP_KEYWORDS
+            )
+        else:
+            extracted_text = extract_text_from_pdf(
+                None, 
+                None, 
+                content, 
+                method="pymupdf", 
+                skip_keywords=SKIP_KEYWORDS
+            )
+        
+        # Upload to RAG corpus
+        if doc_type.lower() == "scanned":
+            # Save as text file for RAG
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode='w', encoding='utf-8') as temp_txt:
+                temp_txt.write(extracted_text)
+                temp_txt_path = temp_txt.name
+            
+            rag_file_result = rag.upload_file(
+                corpus_name=corpus_resource_name,
+                path=temp_txt_path,
+                display_name=f"{upload_display_name}.txt",
+                description=f"OCR extracted from scanned PDF by user '{user_id}'"
+            )
+            os.remove(temp_txt_path)
+        else:
+            # Save PDF temporarily
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", mode='wb') as temp_pdf:
+                temp_pdf.write(content)
+                temp_pdf_path = temp_pdf.name
 
-    except Exception as e:
-        print(f"❌ Error during direct RAG upload process: {e}")
-        traceback.print_exc() # Log the full error stack trace
-        # Provide a more generic error message to the client
-        raise HTTPException(
-            status_code=500,
-            detail=f"Failed to submit document to RAG Corpus. Check server logs for details."
-        )
-    finally:
-        # 5. Clean up the temporary file ALWAYS
-        if temp_pdf_path and os.path.exists(temp_pdf_path):
-            try:
-                os.remove(temp_pdf_path)
-                print(f"Cleaned up temporary file: {temp_pdf_path}")
-            except Exception as cleanup_error:
-                 print(f"⚠️ Warning: Failed to delete temporary file {temp_pdf_path}: {cleanup_error}")
-        # Ensure the uploaded file stream is closed
-        await file.close()
-
-    # 6. Return success response if upload was submitted
-    if rag_file_result and hasattr(rag_file_result, 'name'):
-        # Extract the file ID from the full resource name for convenience
+            rag_file_result = upload_pdf_to_corpus(
+                corpus_name=corpus_resource_name,
+                pdf_path=temp_pdf_path,
+                display_name=upload_display_name,
+                description=f"Uploaded by user '{user_id}' via API."
+            )
+        
         rag_file_id = rag_file_result.name.split('/')[-1]
-        return {
-            "message": f"Document '{rag_file_result.display_name}' submitted for processing.",
-            "rag_file_name": rag_file_result.name, # Full resource name in Vertex RAG
-            "doc_id": rag_file_id # The unique ID assigned by RAG service
-        }
-    else:
-        # If upload_pdf_to_corpus returned None or an unexpected object
-        print("❌ Upload submission failed or returned unexpected result.")
-        raise HTTPException(
-            status_code=500,
-            detail="Document upload submission to RAG Corpus failed (check server logs for specific error, e.g., quota, permissions)."
+        doc_id = str(uuid.uuid4())
+
+        # ✅ Chunk the text for better retrieval
+        chunks = chunk_text(extracted_text, chunk_size=1500, chunk_overlap=200)
+        chunk_texts = [c["content"] if isinstance(c, dict) else str(c) for c in chunks]
+
+        # ✅ Store BOTH RAG mapping AND full text chunks
+        save_processed_data(
+            user_id=user_id,
+            doc_id=doc_id,
+            data_type="rag_file_mapping",
+            data={
+                "rag_file_id": rag_file_id,
+                "rag_file_name": rag_file_result.name,
+                "user_id": user_id,
+                "doc_id": doc_id,
+                "filename": upload_display_name,
+                "uploaded_at": str(uuid.uuid1().time),
+                "status": "indexing",
+                "indexed_at": None,
+                "doc_type": doc_type
+            }
+        )
+        
+        # ✅ Store full text chunks as backup
+        save_processed_data(
+            user_id=user_id,
+            doc_id=doc_id,
+            data_type="full_text_chunks",
+            data=chunk_texts
         )
 
+        return {
+            "message": "Document uploaded successfully. Indexing in progress.",
+            "doc_id": doc_id,
+            "status": "indexing",
+            "user_id": user_id,
+            "chunks_stored": len(chunk_texts)
+        }
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Failed to upload: {str(e)}")
+    finally:
+        if temp_pdf_path and os.path.exists(temp_pdf_path):
+            os.remove(temp_pdf_path)
+        await file.close()
 
 
 
@@ -736,8 +778,34 @@ async def view_chunks(doc_id: str, user_id: str):
         "chunks": [{"chunk_id": c.get("chunk_id"), "content": c.get("content")} for c in chunks]
     }
 
+class MaskResponse(BaseModel):
+    status: str
+    uploaded_doc: str
+    mask_mapping: dict
 
+    
 
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
+@app.post("/mask-pdf")
+async def masking_data(
+    file: UploadFile = File(...),
+):
+    # Construct file path
+    file_path = os.path.join(UPLOAD_DIR, file.filename)
+
+    # Save file locally
+    with open(file_path, "wb") as f:
+        f.write(await file.read())
+
+    # Call masking function
+    result = await mask_pdf(file_path)
+
+    return {
+        "message": "File uploaded & masked successfully!",
+        "original_path": file_path,
+        **result  # contains masked_pdf_path + mapping
+    }
 
 
 @app.get("/")

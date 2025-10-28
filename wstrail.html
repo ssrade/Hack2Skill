@@ -1,0 +1,84 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>WebSocket STT</title>
+<style>
+#transcript {
+    border: 1px solid #ccc;
+    padding: 10px;
+    width: 500px;
+    height: 150px;
+    overflow-y: auto;
+    white-space: pre-wrap;
+}
+</style>
+</head>
+<body>
+<h2>STT Demo</h2>
+<button id="startBtn">Start</button>
+<button id="stopBtn" disabled>Stop</button>
+<div id="transcript"></div>
+
+<script>
+const startBtn = document.getElementById("startBtn");
+const stopBtn = document.getElementById("stopBtn");
+const transcriptDiv = document.getElementById("transcript");
+
+let ws;
+let mediaRecorder;
+
+startBtn.onclick = async () => {
+    ws = new WebSocket("ws://localhost:3001/speech/ws");
+
+    ws.onopen = () => {
+        console.log("WebSocket connected");
+        startBtn.disabled = true;
+        stopBtn.disabled = false;
+    };
+
+    ws.onmessage = (event) => {
+        console.log("Raw message from server:", event.data);
+        try {
+            const data = JSON.parse(event.data);
+            // Adjust according to what backend sends
+            const text = data.transcript || data.text || data.results?.[0]?.alternatives?.[0]?.transcript;
+            if (text) {
+                transcriptDiv.innerText += text + " ";
+                transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
+            }
+        } catch (err) {
+            console.error("Error parsing server message:", err);
+        }
+    };
+
+    ws.onerror = (err) => console.error("WebSocket error:", err);
+    ws.onclose = () => console.log("WebSocket closed");
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+
+    mediaRecorder.ondataavailable = (e) => {
+        if (ws.readyState === WebSocket.OPEN) {
+            e.data.arrayBuffer().then(buffer => {
+                ws.send(new Uint8Array(buffer));
+            });
+        }
+    };
+
+    mediaRecorder.start(1000); // chunk every 250ms
+};
+
+stopBtn.onclick = () => {
+    if (mediaRecorder && mediaRecorder.state !== "inactive") {
+        mediaRecorder.stop();
+    }
+    if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.close();
+    }
+    startBtn.disabled = false;
+    stopBtn.disabled = true;
+};
+</script>
+</body>
+</html>

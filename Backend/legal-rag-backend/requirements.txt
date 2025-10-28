@@ -29,3 +29,9 @@ matplotlib
 vertexai
 google-cloud-aiplatform
 python-multipart
+google-adk
+presidio-analyzer
+presidio-anonymizer
+spacy
+pdfplumber
+reportlab
