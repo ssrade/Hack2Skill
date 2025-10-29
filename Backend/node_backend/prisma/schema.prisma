@@ -78,8 +78,8 @@ model Agreement {
 
 
 enum AnalysisMode {
-  SIMPLER
-  EXPERT
+  basic
+  pro
 }
 
 enum AgreementStatus {

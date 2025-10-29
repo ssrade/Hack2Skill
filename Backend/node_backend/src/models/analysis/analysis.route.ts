@@ -27,6 +27,7 @@ const router = Router();
  *               - agreementId
  *               - docType
  *               - userId
+ *               - user_type
  *             properties:
  *               file:
  *                 type: string
@@ -43,6 +44,9 @@ const router = Router();
  *                 type: string
  *                 description: Logged-in user identifier
  *                 example: 1322323qqqw3323
+ *               user_type:
+ *                 user_type: string
+ *                 example: basic
  *
  *     responses:
  *       200:

@@ -10,7 +10,7 @@ export const upload = multer({ storage });
 // ✅ Controller to handle full pipeline call
 export const processAgreementController = async (req: any, res: Response) => {
   try {
-    const { agreementId, docType } = req.body;
+    const { agreementId, docType, user_type } = req.body;
     const userId = req.user.id
 
     console.log("📌 Incoming:", { agreementId, docType, userId });
@@ -37,7 +37,8 @@ export const processAgreementController = async (req: any, res: Response) => {
       agreementId,
       file,
       docType,
-      userId
+      userId,
+      user_type
     );
 
     if (!result.success) {

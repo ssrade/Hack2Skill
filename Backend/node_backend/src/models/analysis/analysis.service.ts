@@ -39,7 +39,8 @@ export const processPdfService = async (
     agreementId: string,
     file: any,
     docType: string,
-    user: string
+    user: string,
+    user_type: string,
 ) => {
     try {
         console.log("STEP 1 ➜ Masking PDF…");
@@ -83,6 +84,10 @@ export const processPdfService = async (
         const batchForm = new URLSearchParams();
         batchForm.append("doc_id", doc_id);
         batchForm.append("user_id", user);
+        batchForm.append("type", user_type);
+
+        console.log(batchForm);
+        
 
         const analysisResponse = await axiosClient.post("/batch_pipeline", batchForm, {
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
