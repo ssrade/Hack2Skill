@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import multer from "multer";
-import { getanalysisDetails, processPdfService } from "./analysis.service";
+import { getanalysisDetails, getQuestionsService, getReport, processPdfService } from "./analysis.service";
+import { getAllDocsOfUser } from "./analysis.repository";
 
 // ✅ Multer setup (store file in memory as buffer)
 const storage = multer.memoryStorage();
@@ -75,6 +76,8 @@ export const getAnalysis = async (req: Request, res: Response) => {
         }
 
         const response : any = await getanalysisDetails(agreementId);
+        // console.log(response);
+        
 
         if (!response.success) {
             return res.status(500).json(response);
@@ -89,4 +92,76 @@ export const getAnalysis = async (req: Request, res: Response) => {
             message: "Internal Server Error"
         });
     }
+};
+
+export const getUserDocsController = async (req: any, res: Response) => {
+  const  userId  = req.user.id;
+
+  console.log("helo");
+  
+
+  const result = await getAllDocsOfUser(userId);
+
+  if (!result.success) {
+    return res.status(500).json(result);
+  }
+
+  if (!result.data || result.data.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: "No documents found"
+    });
+  }
+
+  return res.status(200).json(result);
+};
+
+
+export const getquestions = async (req: any, res: Response) => {
+    const { agreementId } = req.params;
+    const userId = req.user.id
+
+    const result = await getQuestionsService(agreementId, userId)
+    console.log(result);
+    
+
+    if (result.success) {
+    return res.status(500).json(result);
+   }
+
+  if (!result.message || result.message.length === 0) {
+    return res.status(404).json({
+      success: false,
+      message: "No documents found"
+    });
+  }
+
+  return res.status(200).json(result);
+}
+
+export const generateReportController = async (req: Request, res: Response) => {
+  try {
+    const { agreementId } = req.params;
+
+    if (!agreementId) {
+      return res.status(400).json({ error: "agreementId is required" });
+    }
+
+    const pdfBuffer = await getReport(agreementId);
+
+    res.set({
+      "Content-Type": "application/pdf",
+      "Content-Disposition": `attachment; filename="agreement_${agreementId}.pdf"`,
+      "Content-Length": pdfBuffer.length,
+    });
+
+    return res.send(pdfBuffer); // ✅ send binary directly
+
+  } catch (error: any) {
+    console.error("generateReportController Error:", error.message || error);
+    
+    return res.status(500).json({
+      error: error.message || "Failed to generate report",
+    });
+  }
 };

@@ -5,7 +5,6 @@ export const updateAnalysisData = async (
   agreementId: string,
   data: {
     summary: any;
-    key_terms: any;
     clauses: any;
     risks: any;
   }
@@ -27,7 +26,6 @@ export const updateAnalysisData = async (
     throw new Error("Failed to update analysis data in database");
   }
 };
-
 
 export const addMaskingJson = async (
   agreementId: string,
@@ -64,4 +62,101 @@ export const getMaskingJson = async(agreementId: string) => {
 
 export const FetchExistingDocAnalysis = async(agreementId: string) => {
   return prisma.agreement.findUnique({where: {id: agreementId}})
+}
+
+export const getAllDocsOfUser = async (userId: string) => {
+  try {
+    const docs = await prisma.agreement.findMany({
+      where: {
+        userId: userId
+      },
+      select: {
+        id: true,
+        title: true,
+        description: true
+      },
+      orderBy: {
+        uploadDate: "desc"
+      }
+    });
+
+    return {
+      success: true,
+      data: docs
+    };
+  } catch (err: any) {
+    console.error("❌ Error while fetching user docs:", err);
+    return {
+      success: false,
+      message: "Failed to fetch user documents"
+    };
+  }
+};
+
+export const addQuestions = async (
+  agreementId: string,
+  questions: any
+) => {
+  return prisma.agreement.update({
+    where: { id: agreementId },
+    data: {
+      questionJson: questions
+    }
+  });
+};
+
+export const getQuestions = async (agreementId: string) => {
+  try {
+    const data = await prisma.agreement.findUnique({
+      where: { id: agreementId },
+      select: {
+        questionJson: true,
+      },
+    });
+
+    if (!data) {
+      return {
+        success: false,
+        message: "Agreement not found",
+      };
+    }
+
+    return {
+      success: true,
+      questions: data.questionJson,
+    };
+
+  } catch (err: any) {
+    console.error("❌ Error fetching questions:", err);
+    return {
+      success: false,
+      message: "Failed to fetch questions",
+    };
+  }
+};
+
+
+export const storeCloudDocId = async (agreementId: string, docId: string) => {
+  return await prisma.agreement.update({
+    where: {id: agreementId},
+    data: {docId: docId}
+  })
+}
+
+export const getCloudDocId = async (agreementId: string) => {
+  const data = await prisma.agreement.findUnique({
+    where: {id: agreementId},
+  })
+
+  if (!data) {
+      return {
+        success: false,
+        message: "docID not found",
+      };
+    }
+
+  return {
+      success: true,
+      docId: data.docId,
+    };
 }

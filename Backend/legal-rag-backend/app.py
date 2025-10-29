@@ -202,73 +202,80 @@ app = FastAPI(title="Legal RAG Backend", lifespan=lifespan)
 UPLOAD_DIR = "uploads/masked_docs"
 
 @app.post("/upload")
-async def upload_doc(file: UploadFile = File(...), doc_type: str = Form(...), user_id: str = Form(...)):
-    if file.content_type != "application/pdf":
-        raise HTTPException(status_code=400, detail="Invalid file type. Upload a PDF.")
+async def upload_doc(
+    file_name: str,
+    doc_type: str,
+    user_id: str
+):
 
-    content = await file.read()
+    # ✅ Build file path
+    file_path = os.path.join(UPLOAD_DIR, file_name)
+    print(file_path)
 
+    # ✅ Validate file exists
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=400, detail="File not found in uploads/masked_docs.")
+
+    # ✅ Validate extension
+    if not file_name.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Only PDF allowed.")
+
+    # ✅ Read file content
+    with open(file_path, "rb") as f:
+        content = f.read()
+
+    # ✅ Extract text based on document type
     if doc_type.lower() == "electronic":
         text = extract_text_from_pdf(None, None, content, method="pymupdf", skip_keywords=SKIP_KEYWORDS)
+
     elif doc_type.lower() == "scanned":
-        text = extract_text_from_pdf(documentai_client, processor_name, content, method="document_ai", skip_keywords=SKIP_KEYWORDS)
+        text = extract_text_from_pdf(documentai_client, processor_name, content, method="document_ai",
+                                     skip_keywords=SKIP_KEYWORDS)
     else:
         raise HTTPException(status_code=400, detail="doc_type must be 'scanned' or 'electronic'.")
 
     print(f"\n[PARSER DEBUG] Extracted Text Length: {len(text)} characters.")
     print(f"[PARSER DEBUG] Text Starts With: {text[:300]}...\n")
 
-    # chunk_text returns list[dict] with 'chunk_id', 'content', 'type'
+    # ✅ Chunk the text
     chunks = chunk_text(text, chunk_size=1500, chunk_overlap=200)
+    chunk_texts = [c["content"] for c in chunks]
 
-    # Extract plain text list for embeddings / LLM usage
-    chunk_texts = [c["content"] if isinstance(c, dict) and "content" in c else str(c) for c in chunks]
+    # ✅ Generate a new doc_id
+    doc_id = str(uuid.uuid4())
 
-    
-    # If embeddings / Pinecone enabled -> embed & upsert
+    # ✅ Optional: Store embeddings to Pinecone
     if USE_PINECONE:
         try:
             embeddings = embed_texts_batch(chunk_texts)
+            vectors = [
+                {
+                    "id": f"{user_id}_{doc_id}_chunk_{i}",
+                    "values": emb,
+                    "metadata": {"user_id": user_id, "doc_id": doc_id, "chunk_id": i, "snippet": chunk_texts[i][:150]},
+                }
+                for i, emb in enumerate(embeddings)
+            ]
+            rag_index.upsert(vectors=vectors)
+            print(f"[PINECONE] SUCCESS: Upserted {len(vectors)} vectors")
         except Exception as e:
-            # log and re-raise to make failure explicit
-            print(f"[EMBEDDING ERROR] Failed to create embeddings: {e}")
-            raise
+            print(f"[PINECONE ERROR]: {e}")
 
-        doc_id = str(uuid.uuid4())
-        vectors = [
-            {
-                "id": f"{user_id}_{doc_id}_chunk_{i}",
-                "values": emb,
-                "metadata": {"user_id": user_id, "doc_id": doc_id, "chunk_id": i, "snippet": chunk_texts[i][:150]},
-            }
-            for i, emb in enumerate(embeddings)
-        ]
-
-        if vectors:
-            try:
-                rag_index.upsert(vectors=vectors)
-                print(f"[PINECONE] SUCCESS: Upserted {len(vectors)} vectors to RAG Index.")
-            except Exception as e:
-                # log but do not block storing chunks locally
-                print(f"[PINECONE] ERROR: Failed to upsert vectors: {e}")
-    else:
-        # create doc_id even when not using Pinecone
-        doc_id = str(uuid.uuid4())
-
-    # Store chunks in Firestore as list of dicts with 'content' (consistent shape)
-    store_chunks = []
-    # If original chunk_texts length differs, fallback to chunk_texts
-    if chunks and isinstance(chunks[0], dict) and "content" in chunks[0]:
-        # normalize each chunk to {"content": <str>}
-        for c in chunks:
-            store_chunks.append({"content": str(c.get("content", "")), "chunk_id": c.get("chunk_id"), "type": c.get("type")})
-    else:
-        for i, txt in enumerate(chunk_texts):
-            store_chunks.append({"content": str(txt), "chunk_id": i})
+    # ✅ Store normalized chunks to Firestore
+    store_chunks = [
+        {"content": c.get("content", ""), "chunk_id": c.get("chunk_id"), "type": c.get("type")}
+        for c in chunks
+    ]
 
     save_processed_data(user_id, doc_id, "full_text_chunks", store_chunks)
 
-    return {"message": f"Document processed successfully ({len(store_chunks)} chunks).", "doc_id": doc_id}
+    return {
+        "message": f"Document processed successfully ({len(store_chunks)} chunks).",
+        "doc_id": doc_id,
+        "source": file_path
+    }
+
+
 class RAGQueryRequest(BaseModel):
     query: str
 
@@ -838,6 +845,7 @@ async def masking_data(
         **result  # contains masked_pdf_path + mapping
     }
 
+
 from fastapi import Form
 from fastapi.responses import JSONResponse
 from utils.retrieval import retrieve_top_k_pinecone
@@ -864,14 +872,9 @@ if USE_PINECONE:
 else:
     rulebook_index = None
 
-from fastapi import Form
+from fastapi import Form, FastAPI, HTTPException, Request
 from typing import List
 import json
-
-from fastapi import FastAPI, HTTPException, Request
-import json
-
-from fastapi import Request
 
 @app.post("/view-rulebook-source")
 async def view_rulebook_source(
@@ -893,7 +896,7 @@ async def view_rulebook_source(
         data = await request.json()
 
         # Extract key terms
-        key_terms_list = data.get("summary", {}).get("key_terms", [])[:10]
+        key_terms_list = data.get("summary", {}).get("key_terms", [])[:15]
         if not isinstance(key_terms_list, list) or not key_terms_list:
             raise HTTPException(
                 status_code=400,
@@ -913,7 +916,10 @@ async def view_rulebook_source(
 
             # 3️⃣ Prompt LLM for explanation
             prompt = f"""
-You are a legal assistant. Given the following rulebook excerpt, explain the meaning or relevance of the term in simple, clear language. If the term is not found in the context, reply exactly: "Not found in context."
+You are a legal assistant for a professional law person.
+Use "Rulebook context" to clarify terms found in the document context.
+Given the following rulebook excerpt, explain the meaning or relevance of the term in professional, clear language. 
+If the term is not found in the context, reply exactly: "Not found in context."
 
 Term: {term}
 
@@ -941,8 +947,3 @@ Return ONLY a valid JSON object: {{"term": "<term>", "explanation": "<explanatio
         import traceback
         print(traceback.format_exc())
         return {"error": str(e)}
-
-    
-@app.get("/")
-def read_root():
-    return {"status": "Legal RAG Backend is running!"}

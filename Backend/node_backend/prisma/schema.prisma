@@ -63,6 +63,7 @@ model Agreement {
   clausesJson     Json?           // Store total_clauses, top_clauses[], all_clauses[]
   risksJson       Json?           // Store risk breakdown: High, Medium, Low + top clauses
   maskingJson     Json?
+  questionJson    Json?
 
   analysisMode    AnalysisMode?
   processedAt     DateTime?
