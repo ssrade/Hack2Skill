@@ -90,13 +90,14 @@ export function UploadView({ onUpload, documents, onSelect }: UploadViewProps) {
     }
   };
 
+  // Added logic to reset the selected file state when the same file is uploaded again
   const handleFileSelect = (file: File | null | undefined) => {
     if (!file) return;
     const validExtensions = ['.pdf', '.doc', '.docx', '.txt'];
     const isValidExtension = validExtensions.some((ext) =>
       file.name.toLowerCase().endsWith(ext)
     );
-    
+
     if (!isValidExtension) {
       toast({
         variant: "destructive",
@@ -105,8 +106,12 @@ export function UploadView({ onUpload, documents, onSelect }: UploadViewProps) {
       });
       return;
     }
-    
+
     if (file.size > 10 * 1024 * 1024) {
+      if (selectedFile && selectedFile.name === file.name && selectedFile.size === file.size) {
+        // Reset selected file to allow re-upload of the same file
+        setSelectedFile(null);
+      }
       toast({
         variant: "destructive",
         title: "File Too Large",
@@ -114,7 +119,7 @@ export function UploadView({ onUpload, documents, onSelect }: UploadViewProps) {
       });
       return;
     }
-    
+
     setSelectedFile(file);
   };
 

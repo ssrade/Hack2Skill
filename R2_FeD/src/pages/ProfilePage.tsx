@@ -39,10 +39,8 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
   // State for editable fields
   const [isEditing, setIsEditing] = useState(false);
   const [name, setName] = useState('');
-  const [profession, setProfession] = useState('Legal Professional');
   const [initials, setInitials] = useState('');
   const [email, setEmail] = useState('');
-  const [role, setRole] = useState('');
 
   const [avatarImage, setAvatarImage] = useState<string | null>(null);
   const [coverImage, setCoverImage] = useState<string | null>(null);
@@ -60,9 +58,6 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
         .slice(0,2)
         .join('')
         .toUpperCase());
-      // keep profession and role as defaults unless backend provides them
-      setProfession((user as any).profession || 'Legal Professional');
-      setRole((user as any).role || 'Legal Analyst');
       if (user.picture) setAvatarImage(user.picture);
     }
   }, [user]);
@@ -178,7 +173,7 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
                     />
                   </div>
 
-                  <div className="flex-1 flex flex-col justify-end">
+                  <div className="flex-1 flex flex-col justify-end mt-14">
                     {isEditing ? (
                       <div className="space-y-4">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -197,21 +192,6 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
                             />
                           </div>
                           <div>
-                            <Label
-                              htmlFor="profession"
-                              className="text-gray-600 dark:text-gray-400 text-sm mb-1"
-                            >
-                              Profession
-                            </Label>
-                            <Input
-                              id="profession"
-                              value={profession}
-                              onChange={(e) => setProfession(e.target.value)}
-                              className="bg-gray-50 dark:bg-gray-900/50 border-gray-300 dark:border-gray-700 text-black dark:text-white"
-                            />
-                          </div>
-                        </div>
-                        <div>
                           <Label
                             htmlFor="initials"
                             className="text-gray-600 dark:text-gray-400 text-sm mb-1"
@@ -228,11 +208,12 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
                             className="bg-gray-50 dark:bg-gray-900/50 border-gray-300 dark:border-gray-700 text-black dark:text-white max-w-xs"
                           />
                         </div>
+                        </div>
+                        
                       </div>
                     ) : (
                       <>
                         <h1 className="text-black dark:text-white text-3xl font-bold mb-2">{name}</h1>
-                        <p className="text-gray-600 dark:text-gray-400 text-lg mb-3">{profession}</p>
                         <p className="text-gray-500 dark:text-gray-500 text-sm">
                           Member since March 2024
                         </p>
@@ -297,23 +278,6 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
                             </div>
                           )}
                         </div>
-                        <div>
-                          <Label className="text-gray-500 dark:text-gray-400 text-sm mb-1">
-                            Role
-                          </Label>
-                          {isEditing ? (
-                            <Input
-                              value={role}
-                              onChange={(e) => setRole(e.target.value)}
-                              className="bg-gray-50 dark:bg-gray-900/50 border-gray-300 dark:border-gray-700 text-black dark:text-white"
-                            />
-                          ) : (
-                            <div className="flex items-center gap-2 text-black dark:text-white">
-                              <User className="w-4 h-4 text-gray-400" />
-                              <p>{role}</p>
-                            </div>
-                          )}
-                        </div>
                       </div>
                     </div>
                   </div>
@@ -334,17 +298,6 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
                           <p className="text-black dark:text-white text-2xl font-bold">127</p>
                         </div>
                         <FileText className="w-8 h-8 text-blue-600 dark:text-blue-400 opacity-50" />
-                      </motion.div>
-                      
-                      <motion.div 
-                        whileHover={{ scale: 1.02 }}
-                        className="flex items-center justify-between p-4 rounded-lg bg-gradient-to-r from-purple-50 to-purple-100/50 dark:from-purple-900/20 dark:to-purple-800/20 border border-purple-200 dark:border-purple-800/30"
-                      >
-                        <div>
-                          <p className="text-gray-600 dark:text-gray-400 text-sm">Account Status</p>
-                          <p className="text-black dark:text-white text-xl font-semibold">Active</p>
-                        </div>
-                        <div className="w-3 h-3 rounded-full bg-green-500 animate-pulse"></div>
                       </motion.div>
                     </div>
                   </div>
