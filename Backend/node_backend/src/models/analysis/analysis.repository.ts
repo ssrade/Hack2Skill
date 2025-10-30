@@ -160,3 +160,27 @@ export const getCloudDocId = async (agreementId: string) => {
       docId: data.docId,
     };
 }
+
+export const getChatsessionId = async(agreementId: string) => {
+ const data = await prisma.agreement.findUnique({
+      where: { id: agreementId },
+      include: {
+        chatSessions: {
+          where: { isActive: true },
+          orderBy: { startedAt: "desc" },
+          take: 1,
+        },
+      },
+    });
+  if (!data) {
+      return {
+        success: false,
+        message: "docID not found",
+      };
+    }
+
+  return {
+      success: true,
+      chatSessionId: data.chatSessions[0].id,
+    };
+}

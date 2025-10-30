@@ -9,7 +9,7 @@ export const authMiddleware = (req: AuthRequest, res: Response, next: NextFuncti
   try {
     const authHeader = req.headers.authorization;
 
-    if (!authHeader || !authHeader.startsWith("Bearer ")) {
+    if (!authHeader || !authHeader.startsWith("Bearer")) {
       return res.status(401).json({ message: "No token provided" });
     }
 

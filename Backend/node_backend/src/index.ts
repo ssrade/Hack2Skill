@@ -9,6 +9,7 @@ import swaggerSpec from "./config/swagger";
 import speechRouter from "./models/speechToText/speechToText.route"
 import analysisRouter from "./models/analysis/analysis.route"
 import docUploadRouter from "./models/doc_services/doc.route"
+import chatRouter from "./models/rag_query/rag_query.route"
 import { initSpeechWebSocket } from "./models/speechToText/speechToText.controller";
 import { authMiddleware } from "./middleware/auth.middleware";
 
@@ -29,6 +30,7 @@ app.use('/preferences', prefRouter)
 app.use("/speech", speechRouter);
 app.use("/docUpload",authMiddleware, docUploadRouter)
 app.use("/agreement",authMiddleware, analysisRouter)
+app.use("/chat",authMiddleware,chatRouter)
 
 
 // Swagger UI
