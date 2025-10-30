@@ -40,51 +40,62 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const [user, setUser] = useState<User | null>(null);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  // Helper: safely check whether a token is a decodable JWT and not expired
+  const isJwtTokenValid = (token: string | null) => {
+    if (!token) return false;
+    try {
+      const decoded: any = (jwt_decode as any)(token);
+      const currentTime = Date.now() / 1000;
+      if (decoded && typeof decoded === 'object' && decoded.exp) {
+        return decoded.exp > currentTime;
+      }
+      // If token decodes but has no exp claim, treat it as invalid for safety
+      return false;
+    } catch (err) {
+      // not a decodable JWT
+      return false;
+    }
+  };
 
-  // Check for existing session on mount
+  // Check for existing session on mount. Only restore if we have a decodable,
+  // non-expired JWT stored in `googleToken`. Do NOT fall back to trusting a
+  // stored `user` without a valid token — that causes accidental auto-login.
   useEffect(() => {
-  const storedUser = localStorage.getItem('user');
-  const storedToken = localStorage.getItem('googleToken');
-  if (storedToken) setAuthToken(storedToken);
-    
-    if (storedUser) {
-      if (storedToken) {
-        try {
-          // Try to decode as an ID token (JWT). If it decodes, verify expiry.
-          const decoded: any = (jwt_decode as any)(storedToken);
-          const currentTime = Date.now() / 1000;
+    const storedUser = sessionStorage.getItem('user');
+    const storedToken = sessionStorage.getItem('googleToken');
 
-          if (decoded?.exp && decoded.exp > currentTime) {
-            setUser(JSON.parse(storedUser));
-          } else if (decoded?.exp && decoded.exp <= currentTime) {
-            // Token expired, clear storage
-            localStorage.removeItem('user');
-            localStorage.removeItem('googleToken');
-          } else {
-            // No exp present (or unknown shape) — fall back to stored user
-            setUser(JSON.parse(storedUser));
-          }
-        } catch (error) {
-          // Not a decodeable JWT (likely an access_token). Assume stored user is valid.
-          console.warn('Stored token is not a JWT; assuming stored user is valid.', error);
-          try {
-            setUser(JSON.parse(storedUser));
-          } catch (e) {
-            console.error('Failed to parse stored user:', e);
-            localStorage.removeItem('user');
-            localStorage.removeItem('googleToken');
-          }
-        }
-      } else {
-        // No stored token but a stored user exists — restore user
+    if (isJwtTokenValid(storedToken)) {
+      // token is valid; restore both token and user (if parseable)
+      setAuthToken(storedToken);
+      if (storedUser) {
         try {
           setUser(JSON.parse(storedUser));
         } catch (e) {
-          console.error('Failed to parse stored user:', e);
-          localStorage.removeItem('user');
+          console.error('Failed to parse stored user; clearing stored auth.', e);
+          sessionStorage.removeItem('user');
+          sessionStorage.removeItem('googleToken');
         }
       }
+    } else if (storedToken && storedUser) {
+  
+      try {
+        setAuthToken(storedToken);
+        setUser(JSON.parse(storedUser));
+  console.warn('Restoring non-JWT token from sessionStorage; token not validated client-side.');
+      } catch (e) {
+          console.error('Failed to parse stored user for non-JWT token; clearing stored auth.', e);
+          sessionStorage.removeItem('user');
+          sessionStorage.removeItem('googleToken');
+      }
+    } else {
+      // No valid JWT and nothing safe to restore — clear any leftover auth to
+      // avoid accidental sign-in from malformed data.
+      if (storedUser || storedToken) {
+        sessionStorage.removeItem('user');
+        sessionStorage.removeItem('googleToken');
+      }
     }
+
     setIsLoading(false);
   }, []);
 
@@ -99,9 +110,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         sub: decoded.sub,
       };
 
-      setUser(userData);
-  localStorage.setItem('user', JSON.stringify(userData));
-  localStorage.setItem('googleToken', credential);
+    setUser(userData);
+  sessionStorage.setItem('user', JSON.stringify(userData));
+  sessionStorage.setItem('googleToken', credential);
   setAuthToken(credential);
 
       console.log('User logged in:', userData);
@@ -121,9 +132,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
         sub: profile.sub || profile.id || '',
       };
 
-      setUser(userData);
-      localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('googleToken', token);
+    setUser(userData);
+    sessionStorage.setItem('user', JSON.stringify(userData));
+    sessionStorage.setItem('googleToken', token);
   setAuthToken(token);
 
       console.log('User set from profile:', userData);
@@ -137,9 +148,9 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       if (!prev) return prev;
       const updated = { ...prev, ...patch };
       try {
-        localStorage.setItem('user', JSON.stringify(updated));
+        sessionStorage.setItem('user', JSON.stringify(updated));
       } catch (e) {
-        console.warn('Failed to persist updated user to localStorage', e);
+        console.warn('Failed to persist updated user to sessionStorage', e);
       }
       return updated;
     });
@@ -148,8 +159,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const logout = () => {
     setUser(null);
     setAuthToken(null);
-    localStorage.removeItem('user');
-    localStorage.removeItem('googleToken');
+    sessionStorage.removeItem('user');
+    sessionStorage.removeItem('googleToken');
     console.log('User logged out');
   };
 
