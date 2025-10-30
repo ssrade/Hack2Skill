@@ -9,6 +9,7 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { AppPage } from './pages/AppPage'; 
 import { useDocuments } from './hooks/useDocuments';
 import { useAuth } from './contexts/AuthContext';
+import { Toaster } from './components/ui/toaster';
 
 type Theme = 'light' | 'dark';
 
@@ -119,6 +120,7 @@ export default function App() {
 
   return (
     <>
+      <Toaster />
       <DocumentPreviewModal
         document={previewDocument || null}
         open={previewModalOpen}

@@ -19,6 +19,7 @@ import { cn } from './lib/utils';
 import type { Document, DocumentType } from './MainApp';
 import { ModalDocumentList } from './ModalDocumentList';
 import { ScrollArea } from './ui/scroll-area';
+import { useToast } from './ui/use-toast';
 
 // --- Only OAuth credential needed ---
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_DRIVE_CLIENT_ID!;
@@ -45,6 +46,7 @@ export function UploadView({ onUpload, documents, onSelect }: UploadViewProps) {
   const [isDragging, setIsDragging] = useState(false);
   const [documentType, setDocumentType] = useState<DocumentType>('scanned');
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { toast } = useToast();
 
   const [isGsiLoaded, setIsGsiLoaded] = useState(false);
   const [oauthToken, setOauthToken] = useState<GoogleTokenResponse | null>(null);
@@ -94,15 +96,26 @@ export function UploadView({ onUpload, documents, onSelect }: UploadViewProps) {
     const isValidExtension = validExtensions.some((ext) =>
       file.name.toLowerCase().endsWith(ext)
     );
-    if (isValidExtension) {
-      if (file.size <= 10 * 1024 * 1024) {
-        setSelectedFile(file);
-      } else {
-        console.error('File size exceeds 10MB limit.');
-      }
-    } else {
-      console.error('Please select a valid document file (PDF, DOC, DOCX, TXT).');
+    
+    if (!isValidExtension) {
+      toast({
+        variant: "destructive",
+        title: "Invalid File Type",
+        description: "Please select a valid document file (PDF, DOC, DOCX, TXT).",
+      });
+      return;
     }
+    
+    if (file.size > 10 * 1024 * 1024) {
+      toast({
+        variant: "destructive",
+        title: "File Too Large",
+        description: `The file "${file.name}" exceeds the 10MB limit.`,
+      });
+      return;
+    }
+    
+    setSelectedFile(file);
   };
 
   const handleDrag = useCallback((e: React.DragEvent) => {
