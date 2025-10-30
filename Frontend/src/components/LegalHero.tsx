@@ -1,106 +1,223 @@
-import { Scale, Brain, Shield, FileCheck } from "lucide-react";
+import { useState } from "react";
+import { Scale, Brain, Shield, FileCheck, Zap, Sparkles, Rocket, ArrowRight, Play, Globe, CheckCircle, Lock, Languages, X, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { motion } from "framer-motion";
 
 export const LegalHero = () => {
+  const [showDemo, setShowDemo] = useState(false);
   const features = [
     {
       icon: <Brain className="w-5 h-5" />,
       title: "AI-Powered Analysis",
-      description: "Advanced language models trained on legal documents"
+      description: "Advanced language models trained on millions of legal documents"
     },
     {
       icon: <Shield className="w-5 h-5" />,
       title: "Risk Detection",
-      description: "Identify potential legal and financial risks instantly"
+      description: "Identify potential legal and financial risks in seconds"
     },
     {
       icon: <FileCheck className="w-5 h-5" />,
       title: "Plain English",
-      description: "Complex legal jargon translated to clear explanations"
+      description: "Complex legal jargon translated to clear, actionable insights"
     }
   ];
 
-  return (
-    <div className="relative overflow-hidden">
-      {/* Background gradient */}
-      <div className="absolute inset-0 bg-gradient-hero opacity-95"></div>
-      
-      {/* Content */}
-      <div className="relative px-6 py-16 sm:py-24">
-        <div className="mx-auto max-w-4xl text-center">
-          {/* Badge */}
-          <Badge className="mb-6 bg-primary-light/20 text-primary-light border-primary-light/30 hover:bg-primary-light/30">
-            <Scale className="w-3 h-3 mr-1" />
-            Legal AI Assistant
-          </Badge>
+  // Scroll to document upload section
+  const scrollToUpload = () => {
+    const uploadSection = document.getElementById("document-upload-section");
+    if (uploadSection) {
+      uploadSection.scrollIntoView({ behavior: "smooth" });
+    }
+  };
 
-          {/* Main heading */}
-          <h1 className="text-4xl sm:text-6xl font-bold text-primary-foreground mb-6 tracking-tight">
-            Demystify Legal Documents with{" "}
-            <span className="bg-gradient-to-r from-primary-light to-white bg-clip-text text-transparent">
-              AI Intelligence
+  return (
+    <div className="relative overflow-hidden bg-gradient-to-br from-gray-900 via-gray-950 to-black min-h-[80vh] flex items-center justify-center py-10">
+      {/* Bright gradient overlay */}
+      <div className="absolute inset-0 bg-gradient-to-tr from-blue-600/10 via-purple-600/10 to-cyan-500/10"></div>
+
+      {/* Floating soft glow */}
+      <div className="absolute -top-20 -left-20 w-56 h-56 bg-gradient-to-br from-blue-500/20 to-indigo-500/10 rounded-full blur-3xl"></div>
+      <div className="absolute -bottom-20 -right-20 w-56 h-56 bg-gradient-to-br from-purple-500/20 to-pink-500/10 rounded-full blur-3xl"></div>
+
+      {/* Content */}
+      <div className="relative px-4 sm:px-6 w-full max-w-6xl mx-auto z-10">
+        <div className="text-center">
+          {/* Logo + name */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="flex flex-col items-center mb-10"
+          >
+            <div className="flex items-center justify-center gap-3 mb-5">
+              <div className="w-14 h-14 bg-gradient-to-br from-blue-600 to-indigo-600 rounded-lg flex items-center justify-center shadow-lg">
+                <Scale className="w-7 h-7 text-white" />
+              </div>
+              <h4 className="text-3xl sm:text-6xl lg:text-6xl font-extrabold bg-gradient-to-r from-blue-300 via-indigo-200 to-purple-300 bg-clip-text text-transparent leading-tight">
+                DocuLex AI
+              </h4>
+            </div>
+            <Badge className="bg-gray-800/60 text-blue-100 border border-blue-400/30 px-4 py-1.5 rounded-full text-sm font-medium">
+              <Sparkles className="w-4 h-4 mr-2 text-blue-300" />
+              AI-Powered Legal Intelligence
+            </Badge>
+          </motion.div>
+
+          {/* Heading */}
+          <motion.h3 
+            className="text-4xl sm:text-6xl lg:text-5xl font-bold text-white mb-6 tracking-tight leading-tight"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.1 }}
+          >
+            Demystify Legal Documents
+            <span className="block mt-3 bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-300 bg-clip-text text-transparent">
+              With AI Precision
             </span>
-          </h1>
+          </motion.h3>
 
           {/* Subtitle */}
-          <p className="text-lg sm:text-xl text-primary-foreground/80 mb-10 max-w-3xl mx-auto leading-relaxed">
-            Upload any legal document and get instant summaries, risk assessments, and plain-English explanations. 
-            Protect yourself from legal and financial risks with AI-powered analysis.
-          </p>
+          <motion.p 
+            className="text-lg sm:text-xl text-gray-300 mb-10 max-w-3xl mx-auto leading-relaxed font-light"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.2 }}
+          >
+            Transform complex legal language into clear, actionable insights. 
+            <span className="text-white font-medium"> Protect your interests</span> with AI-powered analysis that identifies risks and opportunities in seconds.
+          </motion.p>
 
           {/* CTA Buttons */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12">
-            <Button 
-              size="lg" 
-              className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 shadow-lg hover:shadow-xl transition-all duration-300 px-8 py-3"
+          <motion.div 
+            className="flex flex-col sm:flex-row gap-4 justify-center items-center mb-12"
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.3 }}
+          >
+            <Button
+              size="lg"
+              onClick={scrollToUpload}
+              className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-500 hover:to-purple-500 shadow-lg transition-all duration-300 px-7 py-3.5 rounded-lg group text-lg font-semibold"
             >
-              Start Analyzing Documents
+              <Rocket className="w-5 h-5 mr-2 group-hover:rotate-45 transition-transform duration-300" />
+              Start Free Analysis
+              <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
             </Button>
-            <Button 
-              variant="outline" 
-              size="lg" 
-              className="border-primary-foreground/30 text-primary-foreground hover:bg-primary-foreground/10 px-8 py-3"
+
+            <Button
+              size="lg"
+              onClick={() => setShowDemo(true)}
+              className="bg-gradient-to-r from-blue-700/80 via-purple-700/70 to-blue-700/80 text-white hover:from-blue-600/80 hover:to-purple-600/80 shadow-md transition-all duration-300 px-7 py-3.5 rounded-lg group text-lg font-semibold"
             >
+              <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform duration-300" />
               Watch Demo
             </Button>
-          </div>
+
+          </motion.div>
+
+          {/* Trust badges */}
+          <motion.div 
+            className="flex items-center justify-center gap-4 mb-12 text-gray-400 text-sm flex-wrap"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.6, delay: 0.4 }}
+          >
+            <div className="flex items-center gap-2 bg-gray-800/40 px-3 py-1.5 rounded-full">
+              <CheckCircle className="w-4 h-4 text-green-400" />
+              <span>No credit card required</span>
+            </div>
+            <div className="flex items-center gap-2 bg-gray-800/40 px-3 py-1.5 rounded-full">
+              <Globe className="w-4 h-4 text-blue-400" />
+              <span>10,000+ professionals</span>
+            </div>
+            <div className="flex items-center gap-2 bg-gray-800/40 px-3 py-1.5 rounded-full">
+              <Lock className="w-4 h-4 text-amber-400" />
+              <span>Bank-level security</span>
+            </div>
+            <div className="flex items-center gap-2 bg-gray-800/40 px-3 py-1.5 rounded-full">
+              <Languages className="w-4 h-4 text-amber-400" />
+              <span>Multi-Lingual Support</span>
+            </div>
+          </motion.div>
 
           {/* Features grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-16">
+          <motion.div 
+            className="flex flex-row items-center justify-center text-center gap-5 mt-10"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.7, delay: 0.5 }}
+          >
             {features.map((feature, index) => (
-              <div 
+              <motion.div 
                 key={index} 
-                className="bg-primary-foreground/10 backdrop-blur-sm border border-primary-foreground/20 rounded-xl p-6 hover:bg-primary-foreground/15 transition-all duration-300"
+                className="bg-gray-800/30 backdrop-blur-md border border-gray-700/30 rounded-xl p-6 hover:bg-gray-800/40 transition-all duration-300 group cursor-pointer "
+                whileHover={{ y: -3 }}
               >
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-lg bg-primary-light/20 flex items-center justify-center text-primary-light">
+                <div className="flex flex-col items-center text-center gap-3">
+                  <div className="w-14 h-14 rounded-lg bg-gradient-to-br from-blue-600/20 to-purple-600/20 flex items-center justify-center text-blue-300 group-hover:text-blue-200 transition-colors duration-300">
                     {feature.icon}
                   </div>
-                  <h3 className="font-semibold text-primary-foreground">
+                  <h3 className="font-semibold text-white text-lg">
                     {feature.title}
                   </h3>
+                  <p className="text-sm text-gray-300 leading-relaxed">
+                    {feature.description}
+                  </p>
                 </div>
-                <p className="text-sm text-primary-foreground/70">
-                  {feature.description}
-                </p>
-              </div>
+              </motion.div>
             ))}
-          </div>
-
-          {/* Trust indicators */}
-          <div className="mt-16 pt-8 border-t border-primary-foreground/20">
-            <p className="text-sm text-primary-foreground/60 mb-4">
-              Trusted by legal professionals and individuals worldwide
-            </p>
-            <div className="flex justify-center items-center gap-8 text-primary-foreground/40">
-              <div className="text-xs">🔒 Bank-level Security</div>
-              <div className="text-xs">⚡ Instant Analysis</div>
-              <div className="text-xs">📊 95% Accuracy Rate</div>
-            </div>
-          </div>
+          </motion.div>
         </div>
       </div>
+      {/* Demo Modal */}
+      {showDemo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-black/70" onClick={() => setShowDemo(false)}></div>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.95 }}
+            transition={{ duration: 0.18 }}
+            className="relative z-50 w-[90%] max-w-4xl bg-slate-900 rounded-2xl shadow-2xl overflow-hidden"
+          >
+            <div className="flex items-start justify-between p-3 border-b border-slate-800">
+              <div className="text-sm text-slate-200 font-medium">Product Demo</div>
+              <div className="flex items-center gap-2">
+                <a
+                  href="https://youtu.be/zYEOnBpakZA?si=eNdK1RR2JpOrjn_u"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-slate-200 hover:text-white flex items-center gap-2 text-sm"
+                >
+                  Open in new tab
+                  <ExternalLink className="w-4 h-4" />
+                </a>
+                <button
+                  onClick={() => setShowDemo(false)}
+                  className="p-2 rounded-md text-slate-200 hover:bg-slate-800/50"
+                  aria-label="Close demo"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div className="p-4">
+              <div className="aspect-video">
+                <iframe
+                  src="https://www.youtube.com/embed/zYEOnBpakZA"
+                  title="DocuLex Demo"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                  className="w-full h-full rounded-md"
+                />
+              </div>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 };
