@@ -32,7 +32,7 @@ export function ModalDocumentList({ documents, onSelect }: ModalDocumentListProp
               <button
                 key={doc.id}
                 onClick={() => onSelect(doc.id)}
-                className="w-full text-left p-3 rounded-lg mb-2 transition-all backdrop-blur-xl hover:bg-gray-100 dark:hover:bg-[#090e1c] border border-transparent hover:border-blue-300 max-w-[90%]  dark:hover:border-blue-500/30"
+                className="w-full text-left p-3 rounded-lg mb-2 transition-all backdrop-blur-xl hover:bg-gray-100 dark:hover:bg-[#090e1c] border border-transparent hover:border-blue-300 max-w-full  dark:hover:border-blue-500/30"
               >
                 <div className="flex items-start gap-3">
                   <div className="mt-1 p-2 rounded-lg bg-gray-200 dark:bg-gray-800">
