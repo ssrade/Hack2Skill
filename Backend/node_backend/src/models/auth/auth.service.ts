@@ -75,7 +75,7 @@ export const loginService = async (data: LoginData) => {
             process.env.JWT_SECRET || 'fallback-secret',
             { expiresIn: '24h' }
         );
-        await userMemory.warmUserCache(user.id)
+        // await userMemory.warmUserCache(user.id)
         return { token, user: { id: user.id, email: user.email, name: user.name } };
     } catch (error) {
         throw error;

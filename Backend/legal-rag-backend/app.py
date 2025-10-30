@@ -280,50 +280,67 @@ class RAGQueryRequest(BaseModel):
     query: str
 
 @app.post("/upload-rag")
-async def upload_doc_to_rag(
-    file: UploadFile = File(...),
+async def upload_doc_to_rag_local(
+    file_name: str = Form(...),
     user_id: str = Form(...),
     doc_type: str = Form("electronic")
 ):
-    if not file.content_type or file.content_type != "application/pdf":
-        await file.close()
-        raise HTTPException(status_code=400, detail="Only PDF files allowed.")
+    """
+    Upload a locally stored PDF file (from uploads folder) to the RAG corpus.
+    """
+    # ✅ Build file path
+    file_path = os.path.join(UPLOAD_DIR, file_name)
+    print(f"[UPLOAD DEBUG] File path: {file_path}")
+
+    # ✅ Validate file existence
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=400, detail="File not found in uploads folder.")
+
+    # ✅ Validate file type
+    if not file_name.lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Invalid file type. Only PDF allowed.")
 
     corpus_resource_name = os.getenv("RAG_CORPUS")
     if not corpus_resource_name:
         raise HTTPException(status_code=500, detail="RAG_CORPUS environment variable not set.")
-    
-    temp_pdf_path = None
-    
+
     try:
-        upload_display_name = file.filename if file.filename else f"upload_{uuid.uuid4()}.pdf"
-        content = await file.read()  # Read file content
-        
-        # ✅ Extract text for storage (regardless of upload type)
+        # ✅ Read file content
+        with open(file_path, "rb") as f:
+            content = f.read()
+
+        # ✅ Extract text depending on type
         if doc_type.lower() == "scanned":
             extracted_text = extract_text_from_pdf(
-                documentai_client, 
-                processor_name, 
-                content, 
-                method="document_ai", 
+                documentai_client,
+                processor_name,
+                content,
+                method="document_ai",
+                skip_keywords=SKIP_KEYWORDS
+            )
+        elif doc_type.lower() == "electronic":
+            extracted_text = extract_text_from_pdf(
+                None,
+                None,
+                content,
+                method="pymupdf",
                 skip_keywords=SKIP_KEYWORDS
             )
         else:
-            extracted_text = extract_text_from_pdf(
-                None, 
-                None, 
-                content, 
-                method="pymupdf", 
-                skip_keywords=SKIP_KEYWORDS
-            )
-        
-        # Upload to RAG corpus
+            raise HTTPException(status_code=400, detail="doc_type must be 'scanned' or 'electronic'.")
+
+        print(f"[RAG DEBUG] Extracted text length: {len(extracted_text)} chars.")
+
+        upload_display_name = file_name
+        doc_id = str(uuid.uuid4())
+
+        # ✅ Upload to RAG
         if doc_type.lower() == "scanned":
-            # Save as text file for RAG
+            # Convert text to .txt for RAG
             with tempfile.NamedTemporaryFile(delete=False, suffix=".txt", mode='w', encoding='utf-8') as temp_txt:
                 temp_txt.write(extracted_text)
                 temp_txt_path = temp_txt.name
-            
+
             rag_file_result = rag.upload_file(
                 corpus_name=corpus_resource_name,
                 path=temp_txt_path,
@@ -332,26 +349,21 @@ async def upload_doc_to_rag(
             )
             os.remove(temp_txt_path)
         else:
-            # Save PDF temporarily
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf", mode='wb') as temp_pdf:
-                temp_pdf.write(content)
-                temp_pdf_path = temp_pdf.name
-
+            # Upload actual PDF
             rag_file_result = upload_pdf_to_corpus(
                 corpus_name=corpus_resource_name,
-                pdf_path=temp_pdf_path,
+                pdf_path=file_path,
                 display_name=upload_display_name,
                 description=f"Uploaded by user '{user_id}' via API."
             )
-        
-        rag_file_id = rag_file_result.name.split('/')[-1]
-        doc_id = str(uuid.uuid4())
 
-        # ✅ Chunk the text for better retrieval
+        rag_file_id = rag_file_result.name.split("/")[-1]
+
+        # ✅ Chunk text for retrieval
         chunks = chunk_text(extracted_text, chunk_size=1500, chunk_overlap=200)
         chunk_texts = [c["content"] if isinstance(c, dict) else str(c) for c in chunks]
 
-        # ✅ Store BOTH RAG mapping AND full text chunks
+        # ✅ Store RAG mapping
         save_processed_data(
             user_id=user_id,
             doc_id=doc_id,
@@ -368,8 +380,8 @@ async def upload_doc_to_rag(
                 "doc_type": doc_type
             }
         )
-        
-        # ✅ Store full text chunks as backup
+
+        # ✅ Store text chunks
         save_processed_data(
             user_id=user_id,
             doc_id=doc_id,
@@ -378,19 +390,16 @@ async def upload_doc_to_rag(
         )
 
         return {
-            "message": "Document uploaded successfully. Indexing in progress.",
+            "message": "Document uploaded successfully to RAG corpus.",
             "doc_id": doc_id,
             "status": "indexing",
             "user_id": user_id,
             "chunks_stored": len(chunk_texts)
         }
+
     except Exception as e:
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Failed to upload: {str(e)}")
-    finally:
-        if temp_pdf_path and os.path.exists(temp_pdf_path):
-            os.remove(temp_pdf_path)
-        await file.close()
+        raise HTTPException(status_code=500, detail=f"Failed to upload to RAG: {str(e)}")
 
 
 
@@ -414,60 +423,122 @@ class RAGQueryResponse(BaseModel):
     user_id: str
     doc_id: str
 
-@app.post("/query-rag", response_model=RAGQueryResponse)
-async def query_vertex_rag_agent(payload: RAGQueryRequest):
-    print("[DEBUG] RAG_CORPUS:", os.getenv("RAG_CORPUS"))
+from google.oauth2 import service_account
+from vertexai.generative_models import GenerativeModel, Tool
+from fastapi import FastAPI, HTTPException, Form, Request
+import os
+import asyncio
+import traceback
+from vertexai.preview import rag
+from google.oauth2 import service_account
+import vertexai
+import json
 
+SERVICE_ACCOUNT_PATH = "service-account2.json"
+RAG_PROJECT_ID = os.getenv("RAG_PROJECT_ID")
+RAG_LOCATION = os.getenv("RAG_LOCATION")
+RAG_CORPUS = os.getenv("RAG_CORPUS")
+
+credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_PATH)
+vertexai.init(project=RAG_PROJECT_ID, location=RAG_LOCATION, credentials=credentials)
+
+
+
+async def query_vertex_rag(corpus_name: str, query: str, doc_id: str) -> str:
+    """Query the RAG corpus for contextual answer."""
     try:
-        corpus_name = os.getenv("RAG_CORPUS")
-        if not corpus_name:
-            raise HTTPException(status_code=500, detail="RAG_CORPUS not configured.")
+        enhanced_query = f"For document ID {doc_id}: {query}"
 
-        enhanced_query = payload.query
-        if payload.doc_id:
-            enhanced_query = f"For document ID {payload.doc_id}: {payload.query}"
-
-        print(f"🔍 Querying RAG corpus with: {enhanced_query}")
-
-        # Create a RAG retrieval tool
-        rag_retrieval_tool = Tool.from_retrieval(
+        rag_tool = Tool.from_retrieval(
             retrieval=rag.Retrieval(
                 source=rag.VertexRagStore(
-                    rag_resources=[
-                        rag.RagResource(
-                            rag_corpus=corpus_name,
-                        )
-                    ],
+                    rag_resources=[rag.RagResource(rag_corpus=corpus_name)],
                     similarity_top_k=5,
-                    vector_distance_threshold=0.5,
-                ),
+                    vector_distance_threshold=0.5
+                )
             )
         )
 
-        # Create a model with the RAG tool
-        rag_model = GenerativeModel(
-            model_name="gemini-2.5-flash",
-            tools=[rag_retrieval_tool],
-        )
-
-        # Generate response using RAG
-        response = rag_model.generate_content(enhanced_query)
-        response_text = response.text
-
-        print(f"✅ Received response ({len(response_text)} chars): {response_text[:200]}...")
-
-        return RAGQueryResponse(
-            answer=response_text or "No response generated.",
-            user_id=payload.user_id,
-            doc_id=payload.doc_id
-        )
-
-    except HTTPException:
-        raise
+        model = GenerativeModel("gemini-2.5-flash", tools=[rag_tool])
+        response = model.generate_content(enhanced_query)
+        return response.text.strip() if hasattr(response, "text") else "[RAG] No response"
     except Exception as e:
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"Error querying RAG: {str(e)}")
-################################
+        return f"[RAG Error] {str(e)}"
+
+
+
+async def query_llm_from_clauses(query: str, clauses_json: str) -> str:
+    """Generate fallback answer using only the clauses JSON (no Firestore)."""
+    context= json.dumps(clauses_json, indent=2)
+    prompt = f"""
+    *answer in a **clear, formatted, and professional legal style***
+You are a legal document assistant.
+Use ONLY the clauses below to answer the user query.
+If the clauses do not contain the relevant information,
+reply exactly with:
+"The provided document does not contain information to answer this question."
+
+Clauses:
+{context}
+
+User Query:
+{query}
+"""
+
+    model = GenerativeModel("gemini-2.5-flash")
+    response = model.generate_content(prompt)
+    return response.text.strip() if hasattr(response, "text") else "[LLM] No response"
+    
+
+
+@app.post("/query-rag")
+async def query_rag_parallel(
+    query: str = Form(...),
+    user_id: str = Form(...),
+    doc_id: str = Form(...),
+    clauses_json: str = Form(...)
+):
+    """
+    Query both Vertex RAG and local LLM fallback (using provided clauses JSON).
+    Runs in parallel and returns the first valid response.
+    """
+    try:
+        corpus_name = RAG_CORPUS
+        if not corpus_name:
+            raise HTTPException(status_code=500, detail="RAG_CORPUS not configured.")
+
+        rag_task = asyncio.create_task(query_vertex_rag(corpus_name, query, doc_id))
+        llm_task = asyncio.create_task(query_llm_from_clauses(query, clauses_json))
+
+        done, pending = await asyncio.wait(
+            [rag_task, llm_task],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+
+        # Take whichever completes first
+        first_result = list(done)[0].result()
+        for t in pending:
+            t.cancel()
+
+        # If RAG failed or empty, fallback to LLM
+        if (
+            not first_result
+            or "no response" in first_result.lower()
+            or "not contain" in first_result.lower()
+        ):
+            other_result = await (llm_task if rag_task in done else rag_task)
+            first_result = other_result
+
+        return {
+            "answer": first_result or "No relevant response generated.",
+            "user_id": user_id,
+            "doc_id": doc_id
+        }
+
+    except Exception as e:
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"Error: {str(e)}")
 
 @app.post("/summarize")
 async def summarize_doc(doc_id: str = Form(...), user_id: str = Form(...), analysis_type: str = Form("basic")):

@@ -2,6 +2,7 @@ import fs from "fs"
 import FormData from "form-data"
 import axiosClient from "../../config/axios.config";
 import { updateAnalysisData, addMaskingJson, getMaskingJson, FetchExistingDocAnalysis, getQuestions, storeCloudDocId, getCloudDocId, addQuestions } from "./analysis.repository";
+import { addDocIdTOChatSession, createChatSessionRepo } from "../rag_query/rag_query.repository";
 
 const unmaskData = (data: any, mapping: Record<string, string>): any => {
     if (!data) return data;
@@ -51,86 +52,89 @@ export const processPdfService = async (
             contentType: file.mimetype || "application/pdf",
         });
 
+        // STEP 1: Mask PDF
         const maskResponse = await axiosClient.post("/mask-pdf", formData, {
-            headers: formData.getHeaders()
+            headers: formData.getHeaders(),
         });
 
         const { masked_pdf_path: maskedPdfPath, mapping } = maskResponse.data;
-
-        // ✅ Save masking mapping into DB
         await addMaskingJson(agreementId, mapping);
-
         console.log("✅ Masking Success");
 
         const fileName = maskedPdfPath.split(/[\\/]/).pop();
 
+        // STEP 2: Upload masked PDF
         console.log("STEP 2 ➜ Uploading masked PDF…");
-
         const uploadResponse = await axiosClient.post(
-        `/upload?file_name=${fileName}&doc_type=${docType}&user_id=${user}`,
-        {}, 
-        { timeout: 120000 }
+            `/upload?file_name=${fileName}&doc_type=${docType}&user_id=${user}`,
+            {},
+            { timeout: 120000 }
         );
 
-
         const { doc_id } = uploadResponse.data;
-
         await storeCloudDocId(agreementId, doc_id);
-
         console.log("✅ Upload Success | DOC ID:", doc_id);
 
-        console.log("STEP 3 ➜ Running Batch Pipeline…");
+        // STEP 3: Run Batch Pipeline + Upload to RAG (parallel)
+        console.log("STEP 3 ➜ Running Batch Pipeline and RAG Upload in parallel…");
 
         const batchForm = new URLSearchParams();
         batchForm.append("doc_id", doc_id);
         batchForm.append("user_id", user);
         batchForm.append("type", user_type);
 
-        console.log(batchForm);
-        
+        const ragForm = new URLSearchParams();
+        ragForm.append("file_name", fileName);
+        ragForm.append("user_id", user);
+        ragForm.append("doc_type", docType);
 
-        const analysisResponse = await axiosClient.post("/batch_pipeline", batchForm, {
-            headers: { "Content-Type": "application/x-www-form-urlencoded" },
-            timeout: 120000
-        });
+        // 🔥 Run both in parallel
+        const [analysisResponse, ragResponse] = await Promise.all([
+            axiosClient.post("/batch_pipeline", batchForm, {
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                timeout: 120000,
+            }),
+            axiosClient.post("/upload-rag", ragForm, {
+                headers: { "Content-Type": "application/x-www-form-urlencoded" },
+                timeout: 120000,
+            }),
+        ]);
 
-        console.log("✅ Pipeline Analysis Completed");
+        console.log("✅ Pipeline & RAG upload completed");
 
-        // console.log(analysisResponse.data);
-        
+        // STEP 4: Unmask analysis results
+        const { summary, clauses, risks } = analysisResponse.data;
 
-        // ✅ Unmask every field before saving
-        const unmaskedSummary = unmaskData(analysisResponse.data.summary, mapping);
-        // const unmaskedKeyTerms = unmaskData(analysisResponse.data.key_terms, mapping);
-        const unmaskedClauses = unmaskData(analysisResponse.data.clauses, mapping);
-        const unmaskedRisks = unmaskData(analysisResponse.data.risks, mapping);
+        const unmaskedSummary = unmaskData(summary, mapping);
+        const unmaskedClauses = unmaskData(clauses, mapping);
+        const unmaskedRisks = unmaskData(risks, mapping);
 
-        // console.log(unmaskedKeyTerms);
-        
-
-        // Save unmasked data
         await updateAnalysisData(agreementId, {
             summary: unmaskedSummary,
-            // key_terms: unmaskedKeyTerms,
             clauses: unmaskedClauses,
             risks: unmaskedRisks,
         });
+
+        const chatSession = await createChatSessionRepo(user, agreementId, file.originalname)
+
+        await addDocIdTOChatSession(ragResponse.data.doc_id,chatSession.id)
 
         return {
             success: true,
             message: "PDF processing completed successfully",
             docId: doc_id,
-            analysis: { unmaskedSummary, unmaskedClauses, unmaskedRisks }
+            rag: ragResponse.data,
+            analysis: { unmaskedSummary, unmaskedClauses, unmaskedRisks },
         };
-
     } catch (err: any) {
         console.error("❌ Error in processPdfService:", err?.response?.data || err);
         return {
             success: false,
-            message: err?.response?.data?.detail || "Failed during PDF processing"
+            message: err?.response?.data?.detail || "Failed during PDF processing",
         };
     }
 };
+
 
 export const getanalysisDetails = async (agreementId: string) => {
     try {
@@ -227,7 +231,7 @@ export const getReport = async (agreementId: string) => {
 
     const payload = {
       doc_id: details.docId,
-      analysis_type: "basic",
+      analysis_type: details.analysisMode,
       summary: details.summaryJson,
       clauses: details.clausesJson,
       risks: details.risksJson,
