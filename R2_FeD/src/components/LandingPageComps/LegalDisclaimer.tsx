@@ -1,8 +1,24 @@
+import { useState } from "react";
 import { AlertTriangle, ExternalLink, Shield, FileText, Mail } from "lucide-react";
 import { Button } from "../ui/button";
 import { motion } from "framer-motion";
+import { LegalDocumentModal } from "./LegalDocumentModal";
 
 export const LegalDisclaimer = () => {
+  const [isPrivacyModalOpen, setIsPrivacyModalOpen] = useState(false);
+  const [isTermsModalOpen, setIsTermsModalOpen] = useState(false);
+
+  const handleLinkClick = (type: 'privacy' | 'terms' | 'contact') => {
+    if (type === 'privacy') {
+      setIsPrivacyModalOpen(true);
+    } else if (type === 'terms') {
+      setIsTermsModalOpen(true);
+    } else if (type === 'contact') {
+      // For contact, you can open a mailto link or a contact form
+      window.location.href = 'mailto:legal@lawbuddyai.com';
+    }
+  };
+
   return (
     <motion.div
       className="space-y-6 mt-10"
@@ -52,9 +68,9 @@ export const LegalDisclaimer = () => {
         transition={{ delay: 0.2, duration: 0.4 }}
       >
         {[
-          { label: "Privacy Policy", href: "/privacy", icon: <Shield className="w-3 h-3" /> },
-          { label: "Terms of Service", href: "/terms", icon: <FileText className="w-3 h-3" /> },
-          { label: "Contact Legal Team", href: "/contact-legal", icon: <Mail className="w-3 h-3" /> },
+          { label: "Privacy Policy", type: 'privacy' as const, icon: <Shield className="w-3 h-3" /> },
+          { label: "Terms of Service", type: 'terms' as const, icon: <FileText className="w-3 h-3" /> },
+          { label: "Contact Legal Team", type: 'contact' as const, icon: <Mail className="w-3 h-3" /> },
         ].map((link, index) => (
           <motion.div
             key={link.label}
@@ -65,16 +81,14 @@ export const LegalDisclaimer = () => {
             <Button
               variant="link"
               size="sm"
-              className="h-auto p-0 text-xs hover:underline flex items-center gap-1 text-slate-400 hover:text-slate-200 transition-colors duration-200 group"
-              asChild
+              className="h-auto p-0 text-xs hover:underline flex items-center gap-1 text-slate-400 hover:text-slate-200 transition-colors duration-200 group cursor-pointer"
+              onClick={() => handleLinkClick(link.type)}
             >
-              <a href={link.href} target="_blank" rel="noopener noreferrer">
-                <span className="text-indigo-400 group-hover:text-indigo-300 transition-colors duration-200">
-                  {link.icon}
-                </span>
-                {link.label}
-                <ExternalLink className="w-3 h-3 ml-1 text-slate-500 group-hover:text-slate-300 transition-colors duration-200" />
-              </a>
+              <span className="text-indigo-400 group-hover:text-indigo-300 transition-colors duration-200">
+                {link.icon}
+              </span>
+              {link.label}
+              <ExternalLink className="w-3 h-3 ml-1 text-slate-500 group-hover:text-slate-300 transition-colors duration-200" />
             </Button>
           </motion.div>
         ))}
@@ -89,6 +103,21 @@ export const LegalDisclaimer = () => {
       >
         This tool is designed to assist with document analysis but should not replace professional legal counsel.
       </motion.div>
+
+      {/* Modals for Privacy Policy and Terms of Service */}
+      <LegalDocumentModal
+        isOpen={isPrivacyModalOpen}
+        onClose={() => setIsPrivacyModalOpen(false)}
+        title="Privacy Policy"
+        pdfUrl="/privacy-policy.html"
+      />
+      
+      <LegalDocumentModal
+        isOpen={isTermsModalOpen}
+        onClose={() => setIsTermsModalOpen(false)}
+        title="Terms of Service"
+        pdfUrl="/terms-of-service.html"
+      />
     </motion.div>
   );
 };

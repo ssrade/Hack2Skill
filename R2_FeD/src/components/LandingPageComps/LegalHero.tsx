@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Scale, Brain, Shield, FileCheck, Sparkles, Rocket, ArrowRight, Play, Globe, CheckCircle, Lock, Languages, X, ExternalLink } from "lucide-react";
+import { Scale, Brain, Shield, FileCheck, Sparkles, Rocket, ArrowRight, Play, CheckCircle, Lock, Languages, X, ExternalLink } from "lucide-react";
 import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { motion } from "framer-motion";
@@ -123,10 +123,6 @@ export const LegalHero = () => {
             <div className="flex items-center gap-2 bg-gray-800/40 px-3 py-1.5 rounded-full">
               <CheckCircle className="w-4 h-4 text-green-400" />
               <span>No credit card required</span>
-            </div>
-            <div className="flex items-center gap-2 bg-gray-800/40 px-3 py-1.5 rounded-full">
-              <Globe className="w-4 h-4 text-blue-400" />
-              <span>10,000+ professionals</span>
             </div>
             <div className="flex items-center gap-2 bg-gray-800/40 px-3 py-1.5 rounded-full">
               <Lock className="w-4 h-4 text-amber-400" />
