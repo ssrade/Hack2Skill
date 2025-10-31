@@ -52,9 +52,12 @@ export const processPdfService = async (
             contentType: file.mimetype || "application/pdf",
         });
 
+        formData.append("doc_type", docType);
+
         // STEP 1: Mask PDF
         const maskResponse = await axiosClient.post("/mask-pdf", formData, {
             headers: formData.getHeaders(),
+            timeout: 120000,
         });
 
         const { masked_pdf_path: maskedPdfPath, mapping } = maskResponse.data;
@@ -66,7 +69,7 @@ export const processPdfService = async (
         // STEP 2: Upload masked PDF
         console.log("STEP 2 ➜ Uploading masked PDF…");
         const uploadResponse = await axiosClient.post(
-            `/upload?file_name=${fileName}&doc_type=${docType}&user_id=${user}`,
+            `/upload?file_name=${fileName}&doc_type=electronic&user_id=${user}`,
             {},
             { timeout: 120000 }
         );
@@ -86,7 +89,7 @@ export const processPdfService = async (
         const ragForm = new URLSearchParams();
         ragForm.append("file_name", fileName);
         ragForm.append("user_id", user);
-        ragForm.append("doc_type", docType);
+        ragForm.append("doc_type", "electronic");
 
         // 🔥 Run both in parallel
         const [analysisResponse, ragResponse] = await Promise.all([

@@ -896,24 +896,66 @@ class MaskResponse(BaseModel):
 
 os.makedirs(UPLOAD_DIR, exist_ok=True)
 
+from reportlab.pdfgen import canvas
+from reportlab.lib.pagesizes import letter
+
 @app.post("/mask-pdf")
 async def masking_data(
     file: UploadFile = File(...),
+    doc_type: str = Form(...),  # "electronic" or "scanned"
 ):
-    # Construct file path
+    """
+    Upload a PDF and perform masking.
+    If 'scanned', the extracted OCR text replaces the file content before masking.
+    """
     file_path = os.path.join(UPLOAD_DIR, file.filename)
+    content = await file.read()
 
-    # Save file locally
     with open(file_path, "wb") as f:
-        f.write(await file.read())
+        f.write(content)
 
-    # Call masking function
+    if doc_type.lower() == "scanned":
+        print("🧠 Using Document AI for scanned PDF OCR...")
+
+        # Extract text via Document AI
+        extracted_text = extract_text_from_pdf(
+            documentai_client=documentai_client,
+            processor_name=processor_name,
+            content=content,
+            method="document_ai",
+            skip_keywords=SKIP_KEYWORDS
+        )
+
+        # Replace the stored local PDF with OCR text as actual PDF
+        ocr_pdf_path = file_path  # overwrite same file
+
+        c = canvas.Canvas(ocr_pdf_path, pagesize=letter)
+        width, height = letter
+        y = height - 40
+
+        for line in extracted_text.split("\n"):
+            c.drawString(40, y, line)
+            y -= 14
+            if y < 40:
+                c.showPage()
+                y = height - 40
+        c.save()
+
+        print(f"[📝] Replaced scanned PDF with OCR text at: {ocr_pdf_path}")
+
+    elif doc_type.lower() == "electronic":
+        print("⚡ Electronic PDF detected — skipping OCR.")
+
+    else:
+        raise HTTPException(status_code=400, detail="Invalid doc_type. Use 'electronic' or 'scanned'.")
+
+    # ✅ Now mask the (possibly replaced) file
     result = await mask_pdf(file_path)
 
     return {
         "message": "File uploaded & masked successfully!",
         "original_path": file_path,
-        **result  # contains masked_pdf_path + mapping
+        **result,
     }
 
 
