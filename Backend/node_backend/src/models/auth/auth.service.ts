@@ -146,7 +146,7 @@ export const googleLoginService = async (idToken: string) => {
             { expiresIn: '7d' }
         );
 
-        await userMemory.warmUserCache(user.id)
+      //  await userMemory.warmUserCache(user.id)
 
         return {
             token,

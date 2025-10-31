@@ -16,10 +16,12 @@ import { authMiddleware } from "./middleware/auth.middleware";
 const app = express();
 
 // Middleware
+const allowedOrigins = ["http://localhost:5173"]; // front-end origin(s)
 app.use(cors({
-  origin: ['http://localhost:3000','http://localhost:3001'], // frontend URL(s)
-  methods: ['GET','POST','PATCH','PUT','DELETE','OPTIONS'],
-  credentials: true
+  origin: allowedOrigins,
+  methods: ["GET","POST","PUT","DELETE","OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "Accept", "X-Requested-With"],
+  credentials: true // only if you need to send cookies/auth headers
 }));
 
 app.use(express.json());
@@ -49,6 +51,11 @@ const server = http.createServer(app);
 initSpeechWebSocket(server);
 
 // Start server
-server.listen(3001, () => console.log(`Server + WebSocket running on port`));
+const PORT = process.env.PORT || 3001;
+
+server.listen(PORT, () => {
+  console.log(`✅ Server + WebSocket running on port ${PORT}`);
+});
+
 
 export default app;

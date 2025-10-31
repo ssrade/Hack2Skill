@@ -12,7 +12,7 @@ import { useAuth } from './contexts/AuthContext';
 
 type Theme = 'light' | 'dark';
 
-// Helper component for protected routes (Unchanged)
+// Helper component for protected routes
 function ProtectedRoute({ isAuth, children }: { isAuth: boolean; children: JSX.Element }) {
   if (!isAuth) {
     return <Navigate to="/login" replace />;
@@ -20,7 +20,7 @@ function ProtectedRoute({ isAuth, children }: { isAuth: boolean; children: JSX.E
   return children;
 }
 
-// Guest route (Unchanged)
+// Guest route
 function GuestRoute({ isAuth, children }: { isAuth: boolean; children: JSX.Element }) {
   if (isAuth) {
     return <Navigate to="/app" replace />;
@@ -30,20 +30,16 @@ function GuestRoute({ isAuth, children }: { isAuth: boolean; children: JSX.Eleme
 
 // Main App component
 export default function App() {
-  // --- Use Auth Context instead of local state ---
+  // --- Use Auth Context ---
   const { isAuthenticated, logout: authLogout, isLoading } = useAuth();
   const navigate = useNavigate();
   
-  // --- Theme and Preview Modal state STAYS here ---
+  // --- Theme and Preview Modal state ---
   const [theme, setTheme] = useState<Theme>('dark');
   const [previewDocId, setPreviewDocId] = useState<string | null>(null);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
-  // --- uploadDialogOpen and selectedDocId state are REMOVED ---
-  // const [uploadDialogOpen, setUploadDialogOpen] = useState(false); // <-- REMOVED
-  // const [selectedDocId, setSelectedDocId] = useState<string | null>(null); // <-- REMOVED
-
-  // --- ALL DOCUMENT LOGIC IS NOW IN THE HOOK (Unchanged) ---
+  // --- Document Logic ---
   const {
     documents,
     isLoadingDocs, 
@@ -52,42 +48,43 @@ export default function App() {
     handleDownloadDocument,
     handleSendMessage,
   } = useDocuments(isAuthenticated);
-  // ---------------------------------------------
 
-  // Theme effect (Unchanged)
+  // Theme effect
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
     root.classList.add(theme);
   }, [theme]);
 
-  // Theme handler (Unchanged)
+  // Theme handler
   const handleToggleTheme = () => {
     setTheme((prevTheme) => (prevTheme === 'light' ? 'dark' : 'light'));
   };
 
-  // --- Auth Handlers are now simplified - Auth is handled in LoginPage/SignupPage ---
+  // --- Auth Handlers ---
   const handleLogin = () => {
-    // Navigation is handled after successful Google OAuth in LoginPage
+    // Auth is handled in LoginPage, just navigate
     navigate('/app');
   };
 
   const handleSignup = () => {
-    // Navigation is handled after successful Google OAuth in SignupPage
+    // Auth is handled in SignupPage, just navigate
     navigate('/app');
   };
 
   const handleLogout = () => {
-    authLogout(); // Call the logout from AuthContext
+    // Clear localStorage tokens (used by axios interceptor)
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    
+    // Call logout from AuthContext
+    authLogout();
+    
+    // Navigate to login
     navigate('/login');
   };
 
-  // --- Document handlers that managed UI state are REMOVED ---
-  // const handleUploadAndSelect = ... // <-- REMOVED (Logic moved to AppPage)
-  // const handleDeleteAndDeselect = ... // <-- REMOVED (Logic moved to AppPage)
-  // const handleSelectFromModal = ... // <-- REMOVED (Logic moved to AppPage)
-
-  // --- UI-only handlers STAY here ---
+  // --- UI Handlers ---
   const handleGoToProfile = () => navigate('/profile');
   const handleGoToAdmin = () => navigate('/admin');
 
@@ -96,14 +93,17 @@ export default function App() {
     setPreviewModalOpen(true);
   };
 
-  // --- Render Routes ---
+  // --- Find preview document ---
   const previewDocument = documents.find(doc => doc.id === previewDocId);
 
   // Loading spinner for auth check
   if (isLoading) {
     return (
       <div className="w-screen h-screen flex items-center justify-center bg-white dark:bg-black">
-        <p className="dark:text-white">Loading...</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="dark:text-white text-gray-800">Loading...</p>
+        </div>
       </div>
     );
   }
@@ -112,7 +112,10 @@ export default function App() {
   if (isLoadingDocs && isAuthenticated) {
     return (
       <div className="w-screen h-screen flex items-center justify-center bg-white dark:bg-black">
-        <p className="dark:text-white">Loading Documents...</p>
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+          <p className="dark:text-white text-gray-800">Loading Documents...</p>
+        </div>
       </div>
     );
   }
@@ -126,7 +129,7 @@ export default function App() {
       />
 
       <Routes>
-        {/* Public Routes (Unchanged) */}
+        {/* Public Routes */}
         <Route
           path="/"
           element={
@@ -158,37 +161,34 @@ export default function App() {
           }
         />
 
-        {/* --- MODIFIED PROTECTED ROUTE --- */}
-        {/* This single route now handles both "/app" and "/app/:documentId" */}
+        {/* Protected App Route - handles both "/app" and "/app/:documentId" */}
         <Route
           path="/app/:documentId?"
           element={
             <ProtectedRoute isAuth={isAuthenticated}>
               <AppPage
-                // Pass UserNav props
+                // UserNav props
                 onLogout={handleLogout}
                 onGoToProfile={handleGoToProfile}
                 onGoToAdmin={handleGoToAdmin}
                 theme={theme}
                 onToggleTheme={handleToggleTheme}
                 
-                // Pass Document hook functions/data
+                // Document props
                 documents={documents}
                 handleUploadDocument={handleUploadDocument}
                 handleDeleteDocument={handleDeleteDocument}
                 handleDownloadDocument={handleDownloadDocument}
                 handleSendMessage={handleSendMessage}
                 
-                // Pass Preview handler
+                // Preview handler
                 onPreviewDocument={handlePreviewDocument}
               />
             </ProtectedRoute>
           }
         />
-        {/* ---------------------------------- */}
 
-
-        {/* Other Protected Routes (Unchanged) */}
+        {/* Other Protected Routes */}
         <Route
           path="/profile"
           element={
@@ -206,7 +206,7 @@ export default function App() {
           }
         />
 
-        {/* Default Redirect (Unchanged) */}
+        {/* Default Redirect */}
         <Route
           path="*"
           element={<Navigate to={isAuthenticated ? '/app' : '/'} replace />}

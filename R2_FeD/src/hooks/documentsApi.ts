@@ -1,3 +1,5 @@
+// documentsApi.ts — API helper only (removed React bootstrap and App import).
+
 /**
  * Lightweight frontend API helper for document uploads.
  *
@@ -16,7 +18,9 @@ export async function uploadDocumentToServer(file: File, documentType: string, t
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
-  const res = await fetch('/api/documents', {
+  const BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
+
+  const res = await fetch(`${BASE}/api/documents`, {
     method: 'POST',
     body: form,
     headers: headers,
@@ -40,8 +44,9 @@ export default uploadDocumentToServer;
 export async function saveChatHistory(documentId: string, chatHistory: any, token?: string) {
   const headers: Record<string, string> = { 'Content-Type': 'application/json' };
   if (token) headers['Authorization'] = `Bearer ${token}`;
+  const BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
 
-  const res = await fetch(`/api/chats/${documentId}`, {
+  const res = await fetch(`${BASE}/api/chats/${documentId}`, {
     method: 'POST',
     headers,
     body: JSON.stringify({ chatHistory }),
@@ -62,8 +67,9 @@ export async function saveChatHistory(documentId: string, chatHistory: any, toke
 export async function fetchDocumentsFromServer(token?: string) {
   const headers: Record<string, string> = {};
   if (token) headers['Authorization'] = `Bearer ${token}`;
+  const BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
 
-  const res = await fetch('/api/documents', { headers });
+  const res = await fetch(`${BASE}/api/documents`, { headers });
   if (!res.ok) {
     const text = await res.text().catch(() => '');
     throw new Error(`Fetch documents failed: ${res.status} ${res.statusText} ${text}`);
@@ -71,4 +77,4 @@ export async function fetchDocumentsFromServer(token?: string) {
   return res.json();
 }
 
-
+// Removed stray UI markup that does not belong in this API file.

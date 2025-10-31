@@ -1,7 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cubicBezier } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Button } from '../components/ui/button';
 import { Menu } from 'lucide-react';
 
@@ -10,46 +10,67 @@ import { MainApp, type Document, type DocumentType } from '../components/MainApp
 import { UploadView } from '../components/UploadView';
 import { UserNav } from '../components/UserNav';
 
+import { getAllDocuments } from '../api/agreementApi';
+
+
 // Animation transition settings
 const appTransition = {
   duration: 0.6,
   ease: cubicBezier(0.32, 0.72, 0, 1), // A nice "deceleration" curve
 };
 
-// Define the props this component will receive from App.tsx
 interface AppPageProps {
-  // UserNav props
   onLogout: () => void;
   onGoToProfile: () => void;
   onGoToAdmin: () => void;
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
 
-  // Document data and handlers from useDocuments hook
-  documents: Document[];
-  handleUploadDocument: (file: File, documentType: DocumentType) => Document; // Pass the original fn
+  handleUploadDocument: (file: File, documentType: DocumentType) => Document;
   handleDeleteDocument: (id: string) => void;
   handleDownloadDocument: (id: string) => void;
   handleSendMessage: (documentId: string, messageText: string) => Promise<void>;
-
-  // Preview modal handler
   onPreviewDocument: (id: string) => void;
 }
 
+
 export function AppPage({
-  // Destructure all props
   onLogout,
   onGoToProfile,
   onGoToAdmin,
   theme,
   onToggleTheme,
-  documents,
   handleUploadDocument,
   handleDeleteDocument,
   handleDownloadDocument,
   handleSendMessage,
   onPreviewDocument,
 }: AppPageProps) {
+
+  const [documents, setDocuments] = useState<Document[]>([]);
+  const [loading, setLoading] = useState(true);
+  // Fetch documents on mount
+  useEffect(() => {
+    const fetchDocuments = async () => {
+      try {
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        if (!user?.id) {
+          console.error('No user ID found in localStorage');
+          setLoading(false);
+          return;
+        }
+        setLoading(true);
+        const docs = await getAllDocuments(user.id);
+        setDocuments(docs);
+      } catch (err) {
+        console.error('Failed to fetch documents:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDocuments();
+  }, []);
+
 
   // --- STATE for Mobile Sidebar ---
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -96,6 +117,24 @@ export function AppPage({
     navigate('/app');
     setIsMobileSidebarOpen(false); // Close mobile sidebar
   };
+
+  // --- Loading & Empty States ---
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-gray-500">
+        Loading your agreements...
+      </div>
+    );
+  }
+
+  if (!loading && documents.length === 0) {
+    return (
+      <div className="min-h-screen flex flex-col items-center justify-center text-gray-500">
+        <p>No agreements found.</p>
+        <Button onClick={() => navigate('/app')}>Upload One</Button>
+      </div>
+    );
+  }
 
   // --- RENDER ---
   return (
@@ -148,7 +187,6 @@ export function AppPage({
                 documents={documents}
                 onUpload={handleUploadAndSelect} // Use new nav handler
                 onSelect={handleSelectDocument} // Use new nav handler
-                isMobile={window.innerWidth < 768} // Use window size for initial render flag
               />
             </motion.div>
           ) : (

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { getAgreementQuestions } from '../api/agreementQuestionsApi';
 import type { Document } from './MainApp'; // Adjust this import path if needed
 import { motion, AnimatePresence } from 'framer-motion';
 import { ScrollArea } from './ui/scroll-area'; // Import ScrollArea
@@ -61,18 +62,23 @@ export function DocumentExtrasSidebar({ document: doc }: DocumentExtrasSidebarPr
     window.document.body.removeChild(link);
   }
 
-  const handleGenerateQuestions = () => {
+  const handleGenerateQuestions = async () => {
+    if (!doc.id) return;
+
     setIsGenerating(true);
     setGeneratedQuestions([]);
-    setTimeout(() => {
+
+    try {
+      const questions = await getAgreementQuestions(doc.id);
+      setGeneratedQuestions(questions);
+    } catch (error: any) {
+      console.error('Error generating questions:', error.message);
       setGeneratedQuestions([
-        `What are the specific penalties if we breach the confidentiality clause (Section ${doc.clauses[0]?.id || 'N/A'})?`,
-        'Can you clarify the notice period required for termination?',
-        `How does the "Limited Liability" clause impact us in a worst-case scenario?`,
-        'Are there any conflicts between this document and our "Service Agreement 2024"?',
+        '⚠️ Failed to fetch AI-generated questions. Please try again later.',
       ]);
+    } finally {
       setIsGenerating(false);
-    }, 1500);
+    }
   };
 
   return (
