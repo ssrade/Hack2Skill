@@ -57,3 +57,31 @@ export const getUserDocumentsService = async (userId: string) => {
 
   return signedDocs;
 };
+
+export const DocumentPreviewService = async(agreementId: string) => {
+  const document = await agreementRepo.getAgreementById(agreementId)
+
+  const dump = "url not provided"
+  if(document){
+    const previewUrl = await generateSignedUrl(document?.gcpFileUrl)
+
+    return previewUrl;
+  }
+
+  return dump;
+}
+
+
+export const delAgreement = async(agreementId: string) => {
+  const delDoc = await agreementRepo.delAgreementRepo(agreementId)
+
+  if(delDoc){
+    return {
+      success: true
+    }
+  }
+
+  return {
+      success: false
+    }
+}
