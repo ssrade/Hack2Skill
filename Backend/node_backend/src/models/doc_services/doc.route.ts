@@ -172,7 +172,7 @@ router.post('/preview', previewDoc);
 
 /**
  * @swagger
- * /agreement/delete:
+ * /docUpload/delete:
  *   delete:
  *     tags:
  *       - Agreement

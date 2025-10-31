@@ -31,3 +31,16 @@ export const getAgreementById = async (id: string) => {
     where: { id },
   });
 };
+
+export const delAgreementRepo = async (id: string) => {
+  try {
+    const deletedAgreement = await prisma.agreement.delete({
+      where: { id: id },
+    });
+
+    return deletedAgreement;
+  } catch (error) {
+    console.error("Error deleting agreement:", error);
+    throw new Error("Failed to delete agreement");
+  }
+};
