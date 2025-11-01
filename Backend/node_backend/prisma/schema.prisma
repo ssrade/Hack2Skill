@@ -64,6 +64,7 @@ model Agreement {
   risksJson       Json?           // Store risk breakdown: High, Medium, Low + top clauses
   maskingJson     Json?
   questionJson    Json?
+  rulebookJson    Json?
 
   analysisMode    AnalysisMode?
   processedAt     DateTime?

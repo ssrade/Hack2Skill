@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import multer from "multer";
 import { getanalysisDetails, getQuestionsService, getReport, processPdfService } from "./analysis.service";
 import { getAllDocsOfUser } from "./analysis.repository";
+import { getRuleBookService } from "./analysis.service"; // adjust path as needed
 
 // ✅ Multer setup (store file in memory as buffer)
 const storage = multer.memoryStorage();
@@ -165,4 +166,31 @@ export const generateReportController = async (req: Request, res: Response) => {
       error: error.message || "Failed to generate report",
     });
   }
+};
+
+
+
+
+export const getRuleBookController = async (req: Request, res: Response) => {
+    try {
+        const { agreementId } = req.body;
+
+        if (!agreementId) {
+            return res.status(400).json({ error: "agreementId is required." });
+        }
+
+        const results = await getRuleBookService(agreementId);
+
+        return res.status(200).json({
+            message: "Rulebook sources retrieved successfully.",
+            agreementId,
+            rulebook_explanations: results,
+        });
+    } catch (error: any) {
+        console.error("Error in getRuleBookController:", error);
+        return res.status(500).json({
+            error: "Failed to fetch rulebook sources.",
+            details: error.message || error,
+        });
+    }
 };
