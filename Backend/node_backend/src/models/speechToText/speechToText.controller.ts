@@ -21,7 +21,7 @@ export function initSpeechWebSocket(server: any) {
                 encoding: "LINEAR16",
                 sampleRateHertz: 48000,
                 languageCode: "en-US",
-                alternativeLanguageCodes: ["hi-IN", "en-IN"],
+                alternativeLanguageCodes: ["en-IN"],
                 enableAutomaticPunctuation: true,
             },
             interimResults: true,
