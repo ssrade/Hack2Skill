@@ -1,5 +1,5 @@
 import {Router} from "express";
-import { upload, processAgreementController, getAnalysis, getUserDocsController, getquestions, generateReportController } from "./analysis.controller";
+import { upload, processAgreementController, getAnalysis, getUserDocsController, getquestions, generateReportController, getRuleBookController } from "./analysis.controller";
 
 const router = Router();
 
@@ -288,5 +288,70 @@ router.get(
   "/report/:agreementId",
   generateReportController
 );
+
+/**
+ * @swagger
+ * /agreement/rulebook:
+ *   post:
+ *     tags:
+ *       - Agreements
+ *     summary: Fetch rulebook explanations for key terms in an analyzed agreement
+ *     description: |
+ *       Retrieves the rulebook-based explanations for important legal terms found in a given agreement.
+ *       This route communicates with an AI-powered rulebook retrieval service to generate contextual explanations.
+ *     security:
+ *       - bearerAuth: []
+ *
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - agreementId
+ *             properties:
+ *               agreementId:
+ *                 type: string
+ *                 description: Unique ID of the analyzed agreement
+ *                 example: d629beed-b2d3-47b7-b181-7864ea996af7
+ *
+ *     responses:
+ *       200:
+ *         description: Successfully retrieved rulebook source explanations
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 message:
+ *                   type: string
+ *                   example: Rulebook sources retrieved successfully.
+ *                 agreementId:
+ *                   type: string
+ *                   example: d629beed-b2d3-47b7-b181-7864ea996af7
+ *                 rulebook_explanations:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       term:
+ *                         type: string
+ *                         example: "liability"
+ *                       explanation:
+ *                         type: string
+ *                         example: "Legal responsibility for one’s acts or omissions."
+ *
+ *       400:
+ *         description: Missing or invalid agreement ID
+ *       404:
+ *         description: No analysis found for the given agreement
+ *       500:
+ *         description: Error fetching rulebook sources
+ */
+
+router.post("/rulebook", getRuleBookController);
+
+
 
 export default router;

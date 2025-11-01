@@ -3,6 +3,7 @@ import FormData from "form-data"
 import axiosClient from "../../config/axios.config";
 import { updateAnalysisData, addMaskingJson, getMaskingJson, FetchExistingDocAnalysis, getQuestions, storeCloudDocId, getCloudDocId, addQuestions } from "./analysis.repository";
 import { addDocIdTOChatSession, createChatSessionRepo } from "../rag_query/rag_query.repository";
+import { prisma } from "../../config/database";
 
 const unmaskData = (data: any, mapping: Record<string, string>): any => {
     if (!data) return data;
@@ -120,7 +121,7 @@ export const processPdfService = async (
 
         const chatSession = await createChatSessionRepo(user, agreementId, file.originalname)
 
-        await addDocIdTOChatSession(ragResponse.data.doc_id,chatSession.id)
+        await addDocIdTOChatSession(ragResponse.data.doc_id, chatSession.id)
 
         return {
             success: true,
@@ -225,38 +226,117 @@ export const getQuestionsService = async (agreementId: string, userId: string) =
 
 
 export const getReport = async (agreementId: string) => {
-  try {
-    const details = await FetchExistingDocAnalysis(agreementId);
+    try {
+        const details = await FetchExistingDocAnalysis(agreementId);
 
-    if (!details) {
-      throw new Error("No analysis found for this document.");
+        if (!details) {
+            throw new Error("No analysis found for this document.");
+        }
+
+        const payload = {
+            doc_id: details.docId,
+            analysis_type: details.analysisMode,
+            summary: details.summaryJson,
+            clauses: details.clausesJson,
+            risks: details.risksJson,
+        };
+
+        const response = await axiosClient.post(
+            "/generate-report",
+            payload,
+            {
+                responseType: "arraybuffer", // ✅ required for binary PDF
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                timeout: 120000,
+            }
+        );
+
+        return Buffer.from(response.data); // ✅ convert binary
+
+    } catch (error: any) {
+        console.error("Error in getReport:", error.message || error);
+        throw error;
+    }
+};
+
+
+export const getRuleBookService = async (agreementId: string) => {
+    // 1️⃣ Check if rulebook data already exists in DB
+    const existingAgreement = await prisma.agreement.findUnique({
+        where: { id: agreementId },
+        select: {
+            id: true,
+            title: true,
+            summaryJson: true,
+            rulebookJson: true,
+        },
+    });
+
+    if (!existingAgreement) {
+        throw new Error("Agreement not found.");
     }
 
-    const payload = {
-      doc_id: details.docId,
-      analysis_type: details.analysisMode,
-      summary: details.summaryJson,
-      clauses: details.clausesJson,
-      risks: details.risksJson,
-    };
+    // ✅ Return existing rulebook data if available
+    if (
+        existingAgreement.rulebookJson &&
+        Array.isArray(existingAgreement.rulebookJson) &&
+        existingAgreement.rulebookJson.length > 0
+    ) {
+        console.log("✅ Returning existing rulebook data from DB");
+        return existingAgreement;
+    }
 
+    // 2️⃣ If not found, fetch analysis summary for key_terms
+    const data = await FetchExistingDocAnalysis(agreementId);
+    if (!data || !data.summaryJson) {
+        throw new Error("No analysis found for this document.");
+    }
+
+    const summary = data.summaryJson;
+
+    // 3️⃣ Call FastAPI endpoint to get rulebook explanations
     const response = await axiosClient.post(
-      "/generate-report",
-      payload,
-      {
-        responseType: "arraybuffer", // ✅ required for binary PDF
-        headers: {
-          "Content-Type": "application/json",
-        },
-        timeout: 120000,
-      }
+        "http://localhost:8000/view-rulebook-source",
+        { summary },
+        {
+            params: { top_k: 5 },
+            headers: { "Content-Type": "application/json" },
+            timeout: 200000,
+        }
     );
 
-    return Buffer.from(response.data); // ✅ convert binary
+    let results = response.data?.results || [];
 
-  } catch (error: any) {
-    console.error("Error in getReport:", error.message || error);
-    throw error;
-  }
+    // 4️⃣ Filter out entries with "Not found in context."
+    results = results.filter(
+        (item: any) =>
+            item.explanation &&
+            item.explanation.trim().toLowerCase() !== "not found in context."
+    );
+
+    // If nothing valid found, just return empty
+    if (results.length === 0) {
+        console.warn("⚠️ No valid rulebook entries found.");
+        return { ...existingAgreement, rulebookJson: [] };
+    }
+
+    // 5️⃣ Store new rulebook results in the DB
+    const updatedAgreement = await prisma.agreement.update({
+        where: { id: agreementId },
+        data: {
+            rulebookJson: results,
+        },
+        select: {
+            id: true,
+            title: true,
+            rulebookJson: true,
+        },
+    });
+
+    console.log("✅ Stored new rulebook data in DB");
+    return updatedAgreement;
 };
+
 
