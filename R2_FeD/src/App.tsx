@@ -9,6 +9,10 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { AppPage } from './pages/AppPage'; 
 import { useDocuments } from './hooks/useDocuments';
 import { useAuth } from './contexts/AuthContext';
+import { Toaster } from './components/ui/toast';
+import { OfflineBanner } from './components/OfflineBanner';
+import { SessionTimeoutBanner } from './components/SessionTimeoutBanner';
+import { DocumentSkeleton } from './components/DocumentSkeleton';
 
 type Theme = 'light' | 'dark';
 
@@ -108,13 +112,12 @@ export default function App() {
     );
   }
 
-  // Loading spinner for documents (only when authenticated)
+  // Loading skeleton for documents (only when authenticated)
   if (isLoadingDocs && isAuthenticated) {
     return (
       <div className="w-screen h-screen flex items-center justify-center bg-white dark:bg-black">
-        <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
-          <p className="dark:text-white text-gray-800">Loading Documents...</p>
+        <div className="w-full max-w-4xl px-4">
+          <DocumentSkeleton />
         </div>
       </div>
     );
@@ -122,6 +125,11 @@ export default function App() {
 
   return (
     <>
+      {/* Global UI Components */}
+      <Toaster />
+      <OfflineBanner />
+      <SessionTimeoutBanner />
+      
       <DocumentPreviewModal
         document={previewDocument || null}
         open={previewModalOpen}
@@ -174,8 +182,7 @@ export default function App() {
                 theme={theme}
                 onToggleTheme={handleToggleTheme}
                 
-                // Document props
-                documents={documents}
+                // Document handlers
                 handleUploadDocument={handleUploadDocument}
                 handleDeleteDocument={handleDeleteDocument}
                 handleDownloadDocument={handleDownloadDocument}

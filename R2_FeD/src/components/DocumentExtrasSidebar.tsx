@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { getAgreementQuestions } from '../api/agreementQuestionsApi';
+import { downloadAgreementReport } from '../api/reportApi';
 import type { Document } from './MainApp'; // Adjust this import path if needed
 import { motion, AnimatePresence } from 'framer-motion';
 import { ScrollArea } from './ui/scroll-area'; // Import ScrollArea
@@ -12,7 +13,10 @@ import {
   Bot,
   FileText,
   Mail,
+  Loader,
+  AlertCircle,
 } from 'lucide-react';
+import { useTranslation } from '../contexts/TranslationContext';
 
 interface DocumentExtrasSidebarProps {
   document: Document;
@@ -37,29 +41,30 @@ const containerVariants = {
 };
 
 export function DocumentExtrasSidebar({ document: doc }: DocumentExtrasSidebarProps) {
+  const { inline, t } = useTranslation();
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedQuestions, setGeneratedQuestions] = useState<string[]>([]);
+  const [isDownloadingReport, setIsDownloadingReport] = useState(false);
+  const [reportError, setReportError] = useState<string | null>(null);
 
-  const handleDownloadReport = () => {
-    const reportContent = `
-      📄 Document Report
-      ==========================
-      Document Name: ${doc.name}
-      Upload Date: ${doc.uploadDate}
-      Summary: This is an auto-generated report for the document "${doc.name}". It includes metadata and sample analysis details.
-      Total Clauses: ${doc.clauses?.length || 0}
-      Generated On: ${new Date().toLocaleString()}
-      ==========================
-    `;
-    const blob = new Blob([reportContent], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const link = window.document.createElement('a');
-    link.href = url;
-    link.download = `${doc.name.replace(/\s+/g, '_')}_Report.txt`;
-    window.document.body.appendChild(link);
-    link.click();
-    URL.revokeObjectURL(url);
-    window.document.body.removeChild(link);
+  const handleDownloadReport = async () => {
+    if (!doc.id) {
+      setReportError(await t('Document ID is missing'));
+      return;
+    }
+
+    setIsDownloadingReport(true);
+    setReportError(null);
+
+    try {
+      await downloadAgreementReport(doc.id);
+      // Success - download triggered automatically by the API function
+    } catch (error: any) {
+      console.error('Error downloading report:', error);
+      setReportError(await t(error.message || 'Failed to download report. Please try again.'));
+    } finally {
+      setIsDownloadingReport(false);
+    }
   }
 
   const handleGenerateQuestions = async () => {
@@ -70,11 +75,15 @@ export function DocumentExtrasSidebar({ document: doc }: DocumentExtrasSidebarPr
 
     try {
       const questions = await getAgreementQuestions(doc.id);
-      setGeneratedQuestions(questions);
+      // Translate backend-generated questions
+      const translatedQuestions = await Promise.all(
+        questions.map((q: string) => t(q))
+      );
+      setGeneratedQuestions(translatedQuestions);
     } catch (error: any) {
       console.error('Error generating questions:', error.message);
       setGeneratedQuestions([
-        '⚠️ Failed to fetch AI-generated questions. Please try again later.',
+        await t('⚠️ Failed to fetch AI-generated questions. Please try again later.'),
       ]);
     } finally {
       setIsGenerating(false);
@@ -93,7 +102,7 @@ export function DocumentExtrasSidebar({ document: doc }: DocumentExtrasSidebarPr
             transition={{ delay: 0.1 }}
             className="flex flex-col"
           >
-            <h3 className="text-black dark:text-white mb-3"> Download Report </h3>
+            <h3 className="text-black dark:text-white mb-3">{inline('Download Report')}</h3>
             <div className="p-4 rounded-lg bg-gray-5 dark:bg-[#0f1629]/50 border border-gray-200 dark:border-gray-800/50">
               <div className="flex items-start gap-3">
                 <div className="mt-1 w-8 h-8 rounded-lg bg-gradient-to-br transition-all duration-500 from-blue-500 to-purple-600 flex items-center justify-center flex-shrink-0">
@@ -101,13 +110,31 @@ export function DocumentExtrasSidebar({ document: doc }: DocumentExtrasSidebarPr
                 </div>
                 <div className="flex flex-col flex-1">
                   <p className="text-sm text-gray-700 dark:text-gray-300">
-                    Download a detailed analysis report for <strong>{doc.name}</strong>.
+                    {inline('Download a detailed PDF analysis report for')} <strong>{doc.name}</strong>.
                   </p>
+                  
+                  {/* Error Message */}
+                  {reportError && (
+                    <div className="mt-2 p-2 bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded text-xs text-red-700 dark:text-red-300 flex items-start gap-2">
+                      <AlertCircle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                      <span>{reportError}</span>
+                    </div>
+                  )}
+                  
                   <Button
                     onClick={handleDownloadReport}
-                    className="mt-3 w-fit bg-gradient-to-r transition-all duration-500 from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
+                    disabled={isDownloadingReport}
+                    className="mt-3 w-fit bg-gradient-to-r transition-all duration-500 from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    <Download className="w-4 h-4 mr-2" /> Download Report
+                    {isDownloadingReport ? (
+                      <>
+                        <Loader className="w-4 h-4 mr-2 animate-spin" /> {inline('Generating Report...')}
+                      </>
+                    ) : (
+                      <>
+                        <Download className="w-4 h-4 mr-2" /> {inline('Download Report')}
+                      </>
+                    )}
                   </Button>
                 </div>
               </div>
@@ -122,7 +149,7 @@ export function DocumentExtrasSidebar({ document: doc }: DocumentExtrasSidebarPr
             transition={{ delay: 0.2 }}
             className="flex flex-col"
           >
-            <h3 className="text-black dark:text-white mb-3"> Generate Insights </h3>
+            <h3 className="text-black dark:text-white mb-3">{inline('Generate Insights')}</h3>
             {/* Update card background and border */}
             <div className="p-4 rounded-lg bg-gray-50 dark:bg-[#0f1629]/50 border border-gray-200 dark:border-gray-800/50">
               <div className="flex items-start gap-3">
@@ -132,7 +159,7 @@ export function DocumentExtrasSidebar({ document: doc }: DocumentExtrasSidebarPr
                 <div>
                   {/* Update text color */}
                   <p className="text-sm text-gray-700 dark:text-gray-300">
-                    Generate questions to ask your counterparty based on this doc.
+                    {inline('Generate questions to ask your counterparty based on this doc.')}
                   </p>
                   <Button
                     onClick={handleGenerateQuestions}
@@ -140,7 +167,7 @@ export function DocumentExtrasSidebar({ document: doc }: DocumentExtrasSidebarPr
                     className="mt-3 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
                   >
                     <Sparkles className={`w-4 h-4 mr-2 ${isGenerating ? 'animate-spin' : ''}`} />
-                    {isGenerating ? 'Generating...' : 'Generate'}
+                    {isGenerating ? inline('Generating...') : inline('Generate')}
                   </Button>
                 </div>
               </div>

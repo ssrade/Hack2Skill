@@ -10,6 +10,9 @@ export function initSpeechWebSocket(server: any) {
     
     wss.on("connection", (ws) => {
         console.log("WebSocket connected");
+        
+        let hasReceivedAudio = false; // Track if we received any audio data
+        let isClosing = false; // Prevent duplicate cleanup
 
         const client = new SpeechClient({
             keyFilename: keyPath
@@ -29,11 +32,19 @@ export function initSpeechWebSocket(server: any) {
 
         recognizeStream.on("data", (data) => {
             if (data.results[0] && data.results[0].alternatives[0]) {
-                ws.send(JSON.stringify({ transcript: data.results[0].alternatives[0].transcript }));
+                if (ws.readyState === WebSocket.OPEN) {
+                    ws.send(JSON.stringify({ transcript: data.results[0].alternatives[0].transcript }));
+                }
             }
         });
 
-        recognizeStream.on("error", (err) => console.error("GCP STT error:", err));
+        recognizeStream.on("error", (err: any) => {
+            // Suppress error code 11 (stream ended) as it's expected when closing
+            if (err.code !== 11) {
+                console.error("GCP STT error:", err);
+            }
+        });
+        
         recognizeStream.on("end", () => console.log("GCP stream ended"));
 
         // FFmpeg converts WebM/Opus → PCM16
@@ -45,24 +56,81 @@ export function initSpeechWebSocket(server: any) {
             "pipe:1",
         ]);
 
-        ffmpeg.stderr.on("data", (data) => console.log("FFmpeg:", data.toString()));
+        // Reduce FFmpeg stderr logging (only log errors)
+        ffmpeg.stderr.on("data", (data) => {
+            const message = data.toString();
+            // Only log actual errors, not progress updates
+            if (message.includes('Error') || message.includes('error')) {
+                console.error("FFmpeg error:", message);
+            }
+        });
 
         // Pipe FFmpeg output to GCP
         ffmpeg.stdout.pipe(recognizeStream);
 
         // Handle incoming audio chunks from frontend
         ws.on("message", (chunk: Uint8Array) => {
-            if (!ffmpeg.stdin.destroyed) ffmpeg.stdin.write(Buffer.from(chunk));
+            if (!ffmpeg.stdin.destroyed && !isClosing) {
+                hasReceivedAudio = true; // Mark that we received audio
+                ffmpeg.stdin.write(Buffer.from(chunk));
+            }
         });
 
-        ws.on("close", () => {
-            console.log("WebSocket disconnected");
-            if (!ffmpeg.stdin.destroyed) ffmpeg.stdin.end();
+        const cleanup = () => {
+            if (isClosing) return; // Prevent duplicate cleanup
+            isClosing = true;
+            
+            console.log("WebSocket disconnected - cleaning up...");
+            
+            // Only process if we actually received audio data
+            if (hasReceivedAudio) {
+                // Close stdin first to signal end of input
+                if (!ffmpeg.stdin.destroyed) {
+                    try {
+                        ffmpeg.stdin.end();
+                    } catch (err) {
+                        console.error("Error closing FFmpeg stdin:", err);
+                    }
+                }
+                
+                // Give FFmpeg time to finish processing, then kill it
+                setTimeout(() => {
+                    if (!ffmpeg.killed) {
+                        ffmpeg.kill('SIGTERM');
+                        console.log("FFmpeg process terminated");
+                    }
+                }, 1000);
+            } else {
+                // No audio received, just kill FFmpeg immediately
+                if (!ffmpeg.killed) {
+                    ffmpeg.kill('SIGKILL');
+                    console.log("FFmpeg killed (no audio received)");
+                }
+            }
+            
+            // End GCP stream gracefully
+            setTimeout(() => {
+                try {
+                    recognizeStream.end();
+                } catch (err) {
+                    // Ignore errors when ending stream
+                }
+            }, hasReceivedAudio ? 1500 : 100);
+        };
+
+        ws.on("close", cleanup);
+        ws.on("error", (err) => {
+            console.error("WebSocket error:", err);
+            cleanup();
         });
 
-        ffmpeg.on("close", () => {
+        ffmpeg.on("close", (code) => {
+            console.log("FFmpeg closed with code:", code);
             recognizeStream.end();
-            console.log("FFmpeg closed");
+        });
+
+        ffmpeg.on("error", (err) => {
+            console.error("FFmpeg process error:", err);
         });
     });
 }

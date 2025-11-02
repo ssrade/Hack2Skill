@@ -114,29 +114,40 @@ export const updateProfilePhotoService = async (email: string, file: Express.Mul
  */
 export const googleLoginService = async (idToken: string) => {
     try {
+        console.log('🔐 Google Login Service Started');
+        console.log('📋 ID Token received (first 50 chars):', idToken.substring(0, 50));
+        console.log('🔑 GOOGLE_CLIENT_ID:', process.env.GOOGLE_CLIENT_ID);
+
         const ticket = await googleClient.verifyIdToken({
             idToken,
             audience: process.env.GOOGLE_CLIENT_ID,
         });
 
+        console.log('✅ Token verified successfully');
+
         const payload = ticket.getPayload();
         if (!payload) throw new Error('Invalid Google token');
 
         const { email, name, picture } = payload;
+        console.log('👤 Google User Info:', { email, name, picture });
 
         // check if user exists
         let user = await findUserByEmail(email!);
 
-        // if not, create automatically (no password)
         if (!user) {
+            console.log('🆕 Creating new user...');
             user = await signup({
                 email: email!,
                 name: name || 'Google User',
                 passwordHash: '', // password empty for Google users
                 profilePhoto: picture,
             });
+            console.log('✅ User created:', user.id);
+            
             await prefRepo.createUserPreference(user.id)
             await userMemory.addUserToMemory(user.id)
+        } else {
+            console.log('👋 Existing user found:', user.id);
         }
 
         // generate app token
@@ -146,9 +157,11 @@ export const googleLoginService = async (idToken: string) => {
             { expiresIn: '7d' }
         );
 
+        console.log('🎫 JWT Token generated (first 50 chars):', token.substring(0, 50));
+
       //  await userMemory.warmUserCache(user.id)
 
-        return {
+        const response = {
             token,
             user: {
                 id: user.id,
@@ -157,8 +170,11 @@ export const googleLoginService = async (idToken: string) => {
                 profilePhoto: user.profilePhoto,
             },
         };
+
+        console.log('✅ Google Login Service Complete:', { userId: user.id, email: user.email });
+        return response;
     } catch (error) {
-        console.error('Google Auth Error:', error);
+        console.error('❌ Google Auth Error:', error);
         throw new Error('Google authentication failed');
     }
 };

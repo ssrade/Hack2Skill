@@ -1,6 +1,7 @@
 import { FileText, Clock, Inbox } from 'lucide-react';
 import type { Document } from './MainApp';
 import { ScrollArea } from './ui/scroll-area';
+import { useTranslation } from '../contexts/TranslationContext';
 
 interface ModalDocumentListProps {
   documents: Document[];
@@ -8,14 +9,15 @@ interface ModalDocumentListProps {
 }
 
 export function ModalDocumentList({ documents, onSelect }: ModalDocumentListProps) {
+  const { inline } = useTranslation();
   return (
     <div className="bg-transparent flex flex-col h-[78vh]">
       <div className="p-6 border-b border-gray-200 dark:border-gray-800/50">
-        <h2 className="text-black dark:text-white text-xl font-semibold">Select Document</h2>
+        <h2 className="text-black dark:text-white text-xl font-semibold">{inline('Select Document')}</h2>
         <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
           {documents.length > 0
-            ? `${documents.length} document${documents.length === 1 ? '' : 's'} available`
-            : 'No documents uploaded yet'}
+            ? `${documents.length} ${inline(documents.length === 1 ? 'document' : 'documents')} ${inline('available')}`
+            : inline('No documents uploaded yet')}
         </p>
       </div>
 
@@ -24,8 +26,8 @@ export function ModalDocumentList({ documents, onSelect }: ModalDocumentListProp
           {documents.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-full text-center bg-gray text-gray-500 pt-10">
               <Inbox className="w-12 h-12 mb-4" />
-              <p className="text-sm">No documents found.</p>
-              <p className="text-xs">Upload a new document using the panel on the right.</p>
+              <p className="text-sm">{inline('No documents found.')}</p>
+              <p className="text-xs">{inline('Upload a new document using the panel on the right.')}</p>
             </div>
           ) : (
             documents.map((doc) => (
@@ -49,7 +51,7 @@ export function ModalDocumentList({ documents, onSelect }: ModalDocumentListProp
                           ? 'bg-green-100/50 text-green-700 dark:bg-green-500/20 dark:text-green-400'
                           : 'bg-gray-200/50 text-gray-600 dark:bg-gray-500/20 dark:text-gray-400'
                         }`}>
-                        {doc.status === 'analyzed' ? '✓ Analyzed' : 'Pending'}
+                        {doc.status === 'analyzed' ? inline('✓ Analyzed') : inline('Pending')}
                       </div>
                     </div>
                   </div>

@@ -99,22 +99,28 @@ export const getAnalysis = async (req: Request, res: Response) => {
 export const getUserDocsController = async (req: any, res: Response) => {
   const  userId  = req.user.id;
 
-  console.log("helo");
+  console.log("📄 Get User Docs Controller");
+  console.log("👤 User ID from token:", userId);
   
 
   const result = await getAllDocsOfUser(userId);
 
+  console.log("📊 Result from getAllDocsOfUser:", result);
+
   if (!result.success) {
+    console.log("❌ Error fetching documents");
     return res.status(500).json(result);
   }
 
   if (!result.data || result.data.length === 0) {
+    console.log("📭 No documents found for user");
     return res.status(404).json({
       success: false,
       message: "No documents found"
     });
   }
 
+  console.log(`✅ Found ${result.data.length} documents`);
   return res.status(200).json(result);
 };
 

@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { cubicBezier } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import { Button } from '../components/ui/button';
-import { Menu } from 'lucide-react';
+import { Menu, CheckCircle2, X } from 'lucide-react';
 
 // Import the components it manages
 import { MainApp, type Document, type DocumentType } from '../components/MainApp';
@@ -26,7 +26,7 @@ interface AppPageProps {
   theme: 'light' | 'dark';
   onToggleTheme: () => void;
 
-  handleUploadDocument: (file: File, documentType: DocumentType) => Document;
+  handleUploadDocument: (file: File, documentType: DocumentType) => Promise<Document>;
   handleDeleteDocument: (id: string) => void;
   handleDownloadDocument: (id: string) => void;
   handleSendMessage: (documentId: string, messageText: string) => Promise<void>;
@@ -49,18 +49,16 @@ export function AppPage({
 
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loading, setLoading] = useState(true);
+  const [previousDocumentId, setPreviousDocumentId] = useState<string | null>(null);
+  const [deleteSuccessMessage, setDeleteSuccessMessage] = useState<string | null>(null);
+  
   // Fetch documents on mount
   useEffect(() => {
     const fetchDocuments = async () => {
       try {
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        if (!user?.id) {
-          console.error('No user ID found in localStorage');
-          setLoading(false);
-          return;
-        }
         setLoading(true);
-        const docs = await getAllDocuments(user.id);
+        // Backend gets userId from JWT token (req.user.id)
+        const docs = await getAllDocuments();
         setDocuments(docs);
       } catch (err) {
         console.error('Failed to fetch documents:', err);
@@ -92,13 +90,15 @@ export function AppPage({
 
   // When a user selects a doc from the list (in UploadView or MainApp)
   const handleSelectDocument = (id: string) => {
+    // Store the previous document ID when navigating
+    setPreviousDocumentId(documentId || null);
     navigate(`/app/${id}`);
     setIsMobileSidebarOpen(false); // Close mobile sidebar on selection
   };
 
   // When a user uploads a new doc
-  const handleUploadAndSelect = (file: File, documentType: DocumentType) => {
-    const newDoc = handleUploadDocument(file, documentType); // Call hook fn from props
+  const handleUploadAndSelect = async (file: File, documentType: DocumentType) => {
+    const newDoc = await handleUploadDocument(file, documentType); // Call hook fn from props
     navigate(`/app/${newDoc.id}`); // Navigate to the new doc's route
   };
 
@@ -106,9 +106,29 @@ export function AppPage({
   const handleDeleteAndDeselect = (id: string) => {
     handleDeleteDocument(id); // Call hook fn from props
     setIsMobileSidebarOpen(false); // Close mobile sidebar
+    
+    // Show success message
+    const deletedDoc = documents.find(doc => doc.id === id);
+    setDeleteSuccessMessage(deletedDoc ? `Document "${deletedDoc.name}" deleted successfully` : 'Document deleted successfully');
+    
+    // Auto-hide after 3 seconds
+    setTimeout(() => setDeleteSuccessMessage(null), 3000);
+    
     if (documentId === id) {
-      // If the currently viewed doc was deleted, go back to the upload view
-      navigate('/app');
+      // If the currently viewed doc was deleted, navigate to previously viewed doc or another
+      const remainingDocs = documents.filter(doc => doc.id !== id);
+      if (remainingDocs.length > 0) {
+        // Try to navigate to the previously viewed document, or first available
+        const targetDoc = previousDocumentId && remainingDocs.find(doc => doc.id === previousDocumentId)
+          ? previousDocumentId
+          : remainingDocs[0].id;
+        navigate(`/app/${targetDoc}`);
+        setPreviousDocumentId(null); // Reset after navigation
+      } else {
+        // No documents left, go to upload view
+        navigate('/app');
+        setPreviousDocumentId(null);
+      }
     }
   };
 
@@ -116,6 +136,28 @@ export function AppPage({
   const handleOpenUploadView = () => {
     navigate('/app');
     setIsMobileSidebarOpen(false); // Close mobile sidebar
+  };
+
+  // Handler for deleting all documents
+  const handleDeleteAllDocuments = () => {
+    // This will be handled by the useDocuments hook
+    setDocuments([]);
+    setIsMobileSidebarOpen(false);
+    // Navigate to upload view if currently viewing a document
+    if (documentId) {
+      navigate('/app');
+    }
+  };
+
+  // Handler to refresh documents list
+  const handleDocumentsUpdate = async () => {
+    try {
+      // Backend gets userId from JWT token (req.user.id)
+      const docs = await getAllDocuments();
+      setDocuments(docs);
+    } catch (err) {
+      console.error('Failed to refresh documents:', err);
+    }
   };
 
   // --- Loading & Empty States ---
@@ -127,12 +169,31 @@ export function AppPage({
     );
   }
 
+  // If no documents and user is on /app (no documentId), show upload view
+  // This handles new users with zero documents
   if (!loading && documents.length === 0) {
     return (
-      <div className="min-h-screen flex flex-col items-center justify-center text-gray-500">
-        <p>No agreements found.</p>
-        <Button onClick={() => navigate('/app')}>Upload One</Button>
-      </div>
+      <>
+        <UserNav
+          onLogout={onLogout}
+          onGoToProfile={onGoToProfile}
+          onGoToAdmin={onGoToAdmin}
+          theme={theme}
+          onToggleTheme={onToggleTheme}
+        />
+        
+        {/* Match the exact styling from the normal upload view */}
+        <div className="min-h-screen w-full flex items-center justify-center
+                        bg-gray-100 dark:bg-gradient-to-br dark:from-black dark:via-black dark:to-indigo-950">
+          <div className="w-full h-screen md:w-[70vw] md:max-w-[1200px] md:h-[80vh] md:shadow-2xl rounded-none md:rounded-2xl">
+            <UploadView
+              documents={[]}
+              onUpload={handleUploadAndSelect}
+              onSelect={handleSelectDocument}
+            />
+          </div>
+        </div>
+      </>
     );
   }
 
@@ -147,6 +208,32 @@ export function AppPage({
         theme={theme}
         onToggleTheme={onToggleTheme}
       />
+
+      {/* Success Message Notification */}
+      <AnimatePresence>
+        {deleteSuccessMessage && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            transition={{ duration: 0.3 }}
+            className="fixed top-24 left-1/2 transform -translate-x-1/2 z-50 w-auto"
+          >
+            <div className="bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-lg p-4 flex items-center gap-3 shadow-lg">
+              <CheckCircle2 className="w-5 h-5 text-green-600 dark:text-green-400 flex-shrink-0" />
+              <p className="text-sm text-green-800 dark:text-green-200 font-medium">
+                {deleteSuccessMessage}
+              </p>
+              <button
+                onClick={() => setDeleteSuccessMessage(null)}
+                className="ml-2 text-green-600 dark:text-green-400 hover:text-green-800 dark:hover:text-green-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* 2. MOBILE SIDEBAR TOGGLE BUTTON */}
       {/* ⬅️ MODIFIED: top-2 instead of top-[60px] to move it higher */}
@@ -224,6 +311,8 @@ export function AppPage({
                 onUpload={handleUploadAndSelect}
                 onSelectFromModal={handleSelectDocument}
                 onDeleteDocument={handleDeleteAndDeselect}
+                onDeleteAllDocuments={handleDeleteAllDocuments}
+                onDocumentsUpdate={handleDocumentsUpdate}
               />
             </motion.div>
           )}

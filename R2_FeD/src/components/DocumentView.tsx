@@ -1,13 +1,15 @@
 import type { Document, Message } from './MainApp';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from './ui/tabs';
-import { AlertTriangle, FileCheck, MessageSquare, TrendingUp, ChevronDown } from 'lucide-react';
+import { AlertTriangle, FileCheck, MessageSquare, TrendingUp, ChevronDown, BookOpen } from 'lucide-react';
 import { ChatInterface } from './ChatInterface';
 import { Progress } from './ui/progress';
 import { DocumentExtrasSidebar } from './DocumentExtrasSidebar';
 import { useState, useEffect } from 'react';
 import { getAgreementAnalysis } from '../api/analysisApi';
+import { getRulebookExplanations, type RulebookTerm } from '../api/rulebookApi';
 import { Button } from './ui/button';
+import { useTranslation } from '../contexts/TranslationContext';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -35,29 +37,199 @@ const itemVariants = {
   visible: { opacity: 1, y: 0 },
 };
 
+// Helper component to translate dynamic backend text
+function TranslatedText({ text }: { text: string }) {
+  const { t, currentLanguage } = useTranslation();
+  const [translated, setTranslated] = useState(text);
+
+  useEffect(() => {
+    if (currentLanguage === 'en') {
+      setTranslated(text);
+      return;
+    }
+    t(text).then(setTranslated);
+  }, [text, currentLanguage, t]);
+
+  return <>{translated}</>;
+}
+
 function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: DocumentViewProps) {
+  const { inline, t, currentLanguage } = useTranslation();
   const [activeTab, setActiveTab] = useState('overview');
   const [analysis, setAnalysis] = useState<any>(null);
+  const [translatedAnalysis, setTranslatedAnalysis] = useState<any>(null);
   const [analysisLoading, setAnalysisLoading] = useState(false);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
 
+  // Rulebook state
+  const [rulebookTerms, setRulebookTerms] = useState<RulebookTerm[]>([]);
+  const [translatedRulebookTerms, setTranslatedRulebookTerms] = useState<RulebookTerm[]>([]);
+  const [rulebookLoading, setRulebookLoading] = useState(false);
+  const [rulebookError, setRulebookError] = useState<string | null>(null);
+  const [rulebookFetched, setRulebookFetched] = useState(false);
+  const [showRulebookContent, setShowRulebookContent] = useState(false);
+
+  // Reset to overview tab when document changes
+  useEffect(() => {
+    if (document) {
+      setActiveTab('overview');
+      // Reset rulebook view states for new document
+      setRulebookFetched(false);
+      setShowRulebookContent(false);
+    }
+  }, [document?.id]);
+
+  // Translate analysis data when it arrives or language changes
+  useEffect(() => {
+    if (!analysis || currentLanguage === 'en') {
+      setTranslatedAnalysis(analysis);
+      return;
+    }
+    
+    const translateAnalysis = async () => {
+      try {
+        const translated = { ...analysis };
+        
+        // Translate summary if it exists
+        if (translated.summary) {
+          translated.summary = await t(translated.summary);
+        }
+        
+        // Translate risk descriptions
+        if (translated.risksJson?.top_clauses) {
+          const risks = translated.risksJson.top_clauses;
+          
+          // Translate High risks
+          if (risks.High) {
+            risks.High = await Promise.all(risks.High.map((desc: string) => t(desc)));
+          }
+          
+          // Translate Medium risks
+          if (risks.Medium) {
+            risks.Medium = await Promise.all(risks.Medium.map((desc: string) => t(desc)));
+          }
+          
+          // Translate Low risks
+          if (risks.Low) {
+            risks.Low = await Promise.all(risks.Low.map((desc: string) => t(desc)));
+          }
+        }
+        
+        setTranslatedAnalysis(translated);
+      } catch (error) {
+        console.error('Error translating analysis:', error);
+        setTranslatedAnalysis(analysis); // Fallback to original
+      }
+    };
+    
+    translateAnalysis();
+  }, [analysis, currentLanguage, t]);
+
+  // Translate rulebook terms when they arrive or language changes
+  useEffect(() => {
+    if (!rulebookTerms || rulebookTerms.length === 0) {
+      setTranslatedRulebookTerms(rulebookTerms);
+      return;
+    }
+    
+    if (currentLanguage === 'en') {
+      // Force update even for English to ensure UI renders
+      setTranslatedRulebookTerms([...rulebookTerms]);
+      return;
+    }
+    
+    const translateRulebook = async () => {
+      try {
+        const translated = await Promise.all(
+          rulebookTerms.map(async (item) => ({
+            term: await t(item.term),
+            explanation: await t(item.explanation),
+          }))
+        );
+        // Force update with new array reference
+        setTranslatedRulebookTerms([...translated]);
+      } catch (error) {
+        console.error('Error translating rulebook:', error);
+        // Fallback to original with new array reference
+        setTranslatedRulebookTerms([...rulebookTerms]);
+      }
+    };
+    
+    translateRulebook();
+  }, [rulebookTerms, currentLanguage, t]);
+
+  // Fetch analysis data
   useEffect(() => {
     if (!document) return;
     setAnalysisLoading(true);
     setAnalysisError(null);
     getAgreementAnalysis(document.id)
       .then((data) => setAnalysis(data))
-      .catch((err) => setAnalysisError('Failed to load analysis'))
+      .catch((err) => {
+        const errorMsg = inline('Failed to load analysis');
+        setAnalysisError(errorMsg);
+      })
       .finally(() => setAnalysisLoading(false));
-  }, [document]);
+  }, [document, inline]);
+
+  // Fetch rulebook data
+  useEffect(() => {
+    if (!document) return;
+    
+    // Reset state first
+    setRulebookTerms([]);
+    setTranslatedRulebookTerms([]);
+    setRulebookLoading(true);
+    setRulebookError(null);
+    setRulebookFetched(false);
+    
+    getRulebookExplanations(document.id)
+      .then((data) => {
+        const terms = data.rulebook_explanations?.rulebookJson || [];
+        console.log('✅ Rulebook data fetched successfully:', terms.length, 'terms');
+        
+        // Create new array references to force React to detect the change
+        const newTerms = [...terms];
+        setRulebookTerms(newTerms);
+        
+        // Set translated terms immediately with a slight delay to ensure state updates
+        setTimeout(() => {
+          setTranslatedRulebookTerms([...newTerms]);
+          setRulebookFetched(true); // Mark as successfully fetched
+        }, 0);
+      })
+      .catch((err) => {
+        console.error('❌ Rulebook error:', err);
+        
+        // User-friendly error messages
+        let errorMsg = inline('Sorry, we could not load the legal terms.');
+        
+        if (err.message?.includes('Authentication') || err.message?.includes('token')) {
+          errorMsg = inline('Please log in again to view the rulebook.');
+        } else if (err.message?.includes('No response') || err.message?.includes('connection')) {
+          errorMsg = inline('Please check your internet connection and try again.');
+        } else if (err.message?.includes('No analysis found')) {
+          errorMsg = inline('This document has not been analyzed yet. Please analyze it first.');
+        } else if (err.message?.includes('404')) {
+          errorMsg = inline('No rulebook information found for this document.');
+        } else if (err.message?.includes('500')) {
+          errorMsg = inline('Server error. Please try again in a few moments.');
+        }
+        
+        setRulebookError(errorMsg);
+      })
+      .finally(() => {
+        setRulebookLoading(false);
+      });
+  }, [document?.id, inline]);
 
   if (!document) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
           <FileCheck className="w-16 h-16 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-          <h3 className="text-gray-700 dark:text-gray-400 text-lg mb-2">No Document Selected</h3>
-          <p className="text-gray-500 dark:text-gray-500 text-sm">Select a document from the sidebar to view analysis</p>
+          <h3 className="text-gray-700 dark:text-gray-400 text-lg mb-2">{inline('No Document Selected')}</h3>
+          <p className="text-gray-500 dark:text-gray-500 text-sm">{inline('Select a document from the sidebar to view analysis')}</p>
         </div>
       </div>
     );
@@ -68,7 +240,7 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
       <div className="flex-1 flex items-center justify-center">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-blue-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <h3 className="text-gray-700 dark:text-gray-400 text-lg mb-2">Loading analysis...</h3>
+          <h3 className="text-gray-700 dark:text-gray-400 text-lg mb-2">{inline('Loading analysis...')}</h3>
         </div>
       </div>
     );
@@ -85,13 +257,16 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
     );
   }
 
-  if (!analysis) {
+  // Use translated analysis for display, fallback to original
+  const displayAnalysis = translatedAnalysis || analysis;
+  
+  if (!displayAnalysis) {
     return null;
   }
 
   // Calculate risk score based on risk counts
   const calculateRiskScore = () => {
-    const { Low = 0, Medium = 0, High = 0 } = analysis.risksJson?.counts || {};
+    const { Low = 0, Medium = 0, High = 0 } = displayAnalysis.risksJson?.counts || {};
     const total = Low + Medium + High;
     if (total === 0) return 0;
     
@@ -118,7 +293,7 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
   // Transform risk data from backend format to UI format
   const transformRisksForUI = () => {
     const risks: any[] = [];
-    const risksJson = analysis.risksJson;
+    const risksJson = displayAnalysis.risksJson;
 
     if (!risksJson) return risks;
 
@@ -126,7 +301,7 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
     (risksJson.top_clauses?.High || []).forEach((description: string, idx: number) => {
       risks.push({
         id: `high-${idx}`,
-        title: `High Risk ${idx + 1}`,
+        title: `${inline('High Risk')} ${idx + 1}`,
         description: description,
         severity: 'high' as const
       });
@@ -136,7 +311,7 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
     (risksJson.top_clauses?.Medium || []).forEach((description: string, idx: number) => {
       risks.push({
         id: `medium-${idx}`,
-        title: `Medium Risk ${idx + 1}`,
+        title: `${inline('Medium Risk')} ${idx + 1}`,
         description: description,
         severity: 'medium' as const
       });
@@ -146,7 +321,7 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
     (risksJson.top_clauses?.Low || []).forEach((description: string, idx: number) => {
       risks.push({
         id: `low-${idx}`,
-        title: `Low Risk ${idx + 1}`,
+        title: `${inline('Low Risk')} ${idx + 1}`,
         description: description,
         severity: 'low' as const
       });
@@ -160,9 +335,9 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
 
   // Calculate total risks from counts
   const totalRisks =
-    (analysis.risksJson?.counts?.High || 0) +
-    (analysis.risksJson?.counts?.Medium || 0) +
-    (analysis.risksJson?.counts?.Low || 0);
+    (displayAnalysis.risksJson?.counts?.High || 0) +
+    (displayAnalysis.risksJson?.counts?.Medium || 0) +
+    (displayAnalysis.risksJson?.counts?.Low || 0);
 
   const getRiskColor = (severity: 'high' | 'medium' | 'low') => {
     switch (severity) {
@@ -194,24 +369,34 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                     {activeTab === 'overview' && <TrendingUp className="w-4 h-4" />}
                     {activeTab === 'risks' && <AlertTriangle className="w-4 h-4" />}
                     {activeTab === 'clauses' && <FileCheck className="w-4 h-4" />}
+                    {activeTab === 'rulebook' && <BookOpen className="w-4 h-4" />}
                     {activeTab === 'chat' && <MessageSquare className="w-4 h-4" />}
-                    {activeTab.charAt(0).toUpperCase() + activeTab.slice(1)}
+                    {inline(
+                      activeTab === 'overview' ? 'Overview' : 
+                      activeTab === 'risks' ? 'Risks' : 
+                      activeTab === 'clauses' ? 'Clauses' : 
+                      activeTab === 'rulebook' ? 'Rulebook' : 
+                      'Chat'
+                    )}
                   </span>
                   <ChevronDown className="w-4 h-4" />
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-fit absolute -left-14 bg-white/80 dark:bg-transparent backdrop-blur-3xl border-gray-300 dark:border-gray-700 text-black dark:text-white">
                 <DropdownMenuItem onSelect={() => setActiveTab('overview')} className="focus:bg-gray-200 dark:focus:bg-gray-700 cursor-pointer">
-                  <TrendingUp className="w-4 h-4 mr-2" /> Overview
+                  <TrendingUp className="w-4 h-4 mr-2" /> {inline('Overview')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setActiveTab('risks')} className="focus:bg-gray-200 dark:focus:bg-gray-700 cursor-pointer">
-                  <AlertTriangle className="w-4 h-4 mr-2" /> Risks
+                  <AlertTriangle className="w-4 h-4 mr-2" /> {inline('Risks')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setActiveTab('clauses')} className="focus:bg-gray-200 dark:focus:bg-gray-700 cursor-pointer">
-                  <FileCheck className="w-4 h-4 mr-2" /> Clauses
+                  <FileCheck className="w-4 h-4 mr-2" /> {inline('Clauses')}
+                </DropdownMenuItem>
+                <DropdownMenuItem onSelect={() => setActiveTab('rulebook')} className="focus:bg-gray-200 dark:focus:bg-gray-700 cursor-pointer">
+                  <BookOpen className="w-4 h-4 mr-2" /> {inline('Rulebook')}
                 </DropdownMenuItem>
                 <DropdownMenuItem onSelect={() => setActiveTab('chat')} className="focus:bg-gray-200 dark:focus:bg-gray-700 cursor-pointer">
-                  <MessageSquare className="w-4 h-4 mr-2" /> Chat
+                  <MessageSquare className="w-4 h-4 mr-2" /> {inline('Chat')}
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -223,25 +408,31 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
               value="overview"
               className="data-[state=active]:bg-blue-100 mt-2 dark:bg-transparent dark:data-[state=active]:bg-gradient-to-r dark:data-[state=active]:from-blue-600/20 dark:data-[state=active]:to-purple-600/20 data-[state=active]:text-blue-700 dark:data-[state=active]:text-white text-gray-600 dark:text-gray-400"
             >
-              <TrendingUp className="w-4 h-4 mr-2" /> Overview
+              <TrendingUp className="w-4 h-4 mr-2" /> {inline('Overview')}
             </TabsTrigger>
             <TabsTrigger
               value="risks"
               className="data-[state=active]:bg-blue-100 mt-2 dark:bg-transparent dark:data-[state=active]:bg-gradient-to-r dark:data-[state=active]:from-blue-600/20 dark:data-[state=active]:to-purple-600/20 data-[state=active]:text-blue-700 dark:data-[state=active]:text-white text-gray-600 dark:text-gray-400"
             >
-              <AlertTriangle className="w-4 h-4 mr-2" /> Risks
+              <AlertTriangle className="w-4 h-4 mr-2" /> {inline('Risks')}
             </TabsTrigger>
             <TabsTrigger
               value="clauses"
               className="data-[state=active]:bg-blue-100 mt-2 dark:bg-transparent dark:data-[state=active]:bg-gradient-to-r dark:data-[state=active]:from-blue-600/20 dark:data-[state=active]:to-purple-600/20 data-[state=active]:text-blue-700 dark:data-[state=active]:text-white text-gray-600 dark:text-gray-400"
             >
-              <FileCheck className="w-4 h-4 mr-2" /> Clauses
+              <FileCheck className="w-4 h-4 mr-2" /> {inline('Clauses')}
+            </TabsTrigger>
+            <TabsTrigger
+              value="rulebook"
+              className="data-[state=active]:bg-blue-100 mt-2 dark:bg-transparent dark:data-[state=active]:bg-gradient-to-r dark:data-[state=active]:from-blue-600/20 dark:data-[state=active]:to-purple-600/20 data-[state=active]:text-blue-700 dark:data-[state=active]:text-white text-gray-600 dark:text-gray-400"
+            >
+              <BookOpen className="w-4 h-4 mr-2" /> {inline('Rulebook')}
             </TabsTrigger>
             <TabsTrigger
               value="chat"
               className="data-[state=active]:bg-blue-100 mt-2 dark:bg-transparent dark:data-[state=active]:bg-gradient-to-r dark:data-[state=active]:from-blue-600/20 dark:data-[state=active]:to-purple-600/20 data-[state=active]:text-blue-700 dark:data-[state=active]:text-white text-gray-600 dark:text-gray-400"
             >
-              <MessageSquare className="w-4 h-4 mr-2" /> Chat
+              <MessageSquare className="w-4 h-4 mr-2" /> {inline('Chat')}
             </TabsTrigger>
           </TabsList>
         </div>
@@ -262,7 +453,7 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                   <motion.div variants={containerVariants} initial="hidden" animate="visible" className="md:pr-3 pt-1">
                     {/* Upload Date */}
                     <motion.p variants={itemVariants} className="text-gray-600 dark:text-gray-400 mb-6">
-                      Uploaded on {formatDate(analysis.uploadDate)}
+                      {inline('Uploaded on')} {formatDate(displayAnalysis.uploadDate)}
                     </motion.p>
 
                     {/* Stats Cards */}
@@ -272,7 +463,7 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                         variants={itemVariants}
                         className="bg-white dark:bg-[#1a1f3a]/50 border border-gray-200 dark:border-gray-800/50 rounded-xl p-4"
                       >
-                        <div className="text-gray-600 dark:text-gray-400 text-sm mb-2">Risk Score</div>
+                        <div className="text-gray-600 dark:text-gray-400 text-sm mb-2">{inline('Risk Score')}</div>
                         <div className="text-black dark:text-white text-2xl mb-2">{riskScore}/100</div>
                         <Progress value={riskScore} className="h-2" />
                       </motion.div>
@@ -282,11 +473,11 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                         variants={itemVariants}
                         className="bg-white dark:bg-[#1a1f3a]/50 border border-gray-200 dark:border-gray-800/50 rounded-xl p-4"
                       >
-                        <div className="text-gray-600 dark:text-gray-400 text-sm mb-2">Total Risks</div>
+                        <div className="text-gray-600 dark:text-gray-400 text-sm mb-2">{inline('Total Risks')}</div>
                         <div className="text-black dark:text-white text-2xl flex items-center gap-2">
                           {totalRisks}
                           <span className="text-sm text-gray-500">
-                            ({analysis.risksJson?.counts?.High || 0}H, {analysis.risksJson?.counts?.Medium || 0}M, {analysis.risksJson?.counts?.Low || 0}L)
+                            ({displayAnalysis.risksJson?.counts?.High || 0}H, {displayAnalysis.risksJson?.counts?.Medium || 0}M, {displayAnalysis.risksJson?.counts?.Low || 0}L)
                           </span>
                         </div>
                       </motion.div>
@@ -296,40 +487,40 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                         variants={itemVariants}
                         className="bg-white dark:bg-[#1a1f3a]/50 border border-gray-200 dark:border-gray-800/50 rounded-xl p-4"
                       >
-                        <div className="text-gray-600 dark:text-gray-400 text-sm mb-2">Total Clauses</div>
-                        <div className="text-black dark:text-white text-2xl">{analysis.clausesJson?.total_clauses || 0}</div>
+                        <div className="text-gray-600 dark:text-gray-400 text-sm mb-2">{inline('Total Clauses')}</div>
+                        <div className="text-black dark:text-white text-2xl">{displayAnalysis.clausesJson?.total_clauses || 0}</div>
                       </motion.div>
                     </motion.div>
 
                     {/* Document Summary */}
                     <div className="mb-8">
                       <motion.h3 variants={itemVariants} className="text-black dark:text-white text-lg mb-4">
-                        Document Summary
+                        {inline('Document Summary')}
                       </motion.h3>
                       <motion.div
                         variants={itemVariants}
                         className="bg-white dark:bg-[#1a1f3a]/50 border border-gray-200 dark:border-gray-800/50 rounded-xl p-5"
                       >
                         <p className="text-gray-600 dark:text-gray-400 leading-relaxed">
-                          {analysis.summaryJson?.summary || 'No summary available'}
+                          {displayAnalysis.summaryJson?.summary ? <TranslatedText text={displayAnalysis.summaryJson.summary} /> : inline('No summary available')}
                         </p>
                       </motion.div>
                     </div>
 
                     {/* Key Terms */}
-                    {analysis.summaryJson?.key_terms && analysis.summaryJson.key_terms.length > 0 && (
+                    {displayAnalysis.summaryJson?.key_terms && displayAnalysis.summaryJson.key_terms.length > 0 && (
                       <div className="mb-8">
                         <motion.h3 variants={itemVariants} className="text-black dark:text-white text-lg mb-4">
-                          Key Terms
+                          {inline('Key Terms')}
                         </motion.h3>
                         <motion.div variants={containerVariants} className="flex flex-wrap gap-2">
-                          {analysis.summaryJson.key_terms.map((term: string, idx: number) => (
+                          {displayAnalysis.summaryJson.key_terms.map((term: string, idx: number) => (
                             <motion.span
                               key={idx}
                               variants={itemVariants}
                               className="px-3 py-1.5 bg-blue-100/50 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 rounded-lg text-sm border border-blue-200 dark:border-blue-500/30"
                             >
-                              {term}
+                              <TranslatedText text={term} />
                             </motion.span>
                           ))}
                         </motion.div>
@@ -339,7 +530,7 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                     {/* Key Risks */}
                     <div className="mb-8">
                       <motion.h3 variants={itemVariants} className="text-black dark:text-white text-lg mb-4">
-                        Key Risks ({highRisks.length} High Priority)
+                        {inline('Key Risks')} ({highRisks.length} {inline('High Priority')})
                       </motion.h3>
                       <motion.div variants={containerVariants} className="space-y-3">
                         {highRisks.slice(0, 5).map((risk: any) => (
@@ -352,12 +543,12 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                               <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400 flex-shrink-0 mt-1" />
                               <div className="flex-1">
                                 <div className="flex items-center gap-2 mb-2">
-                                  <h4 className="text-black dark:text-white font-medium">{risk.title}</h4>
+                                  <h4 className="text-black dark:text-white font-medium"><TranslatedText text={risk.title} /></h4>
                                   <span className={`px-2 py-0.5 rounded text-xs uppercase font-semibold ${getRiskColor(risk.severity)}`}>
                                     {risk.severity}
                                   </span>
                                 </div>
-                                <p className="text-gray-600 dark:text-gray-400 text-sm">{risk.description}</p>
+                                <p className="text-gray-600 dark:text-gray-400 text-sm"><TranslatedText text={risk.description} /></p>
                               </div>
                             </div>
                           </motion.div>
@@ -371,36 +562,36 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                         Important Clauses
                       </motion.h3>
                       <motion.div variants={containerVariants} className="space-y-3">
-                        {(analysis.clausesJson?.top_clauses || []).slice(0, 5).map((clause: any, idx: number) => (
+                        {(displayAnalysis.clausesJson?.top_clauses || []).slice(0, 5).map((clause: any, idx: number) => (
                           <motion.div
                             key={idx}
                             variants={itemVariants}
                             className="bg-white dark:bg-[#1a1f3a]/50 border border-gray-200 dark:border-gray-800/50 rounded-xl p-4"
                           >
                             <div className="flex items-start justify-between mb-2">
-                              <h4 className="text-black dark:text-white font-medium flex-1">{clause.clause}</h4>
+                              <h4 className="text-black dark:text-white font-medium flex-1"><TranslatedText text={clause.clause} /></h4>
                             </div>
-                            <p className="text-gray-600 dark:text-gray-400 text-sm">{clause.explanation}</p>
+                            <p className="text-gray-600 dark:text-gray-400 text-sm"><TranslatedText text={clause.explanation} /></p>
                           </motion.div>
                         ))}
                       </motion.div>
                     </div>
 
                     {/* Critical Questions */}
-                    {analysis.questionJson && analysis.questionJson.length > 0 && (
+                    {displayAnalysis.questionJson && displayAnalysis.questionJson.length > 0 && (
                       <div className="mb-8">
                         <motion.h3 variants={itemVariants} className="text-black dark:text-white text-lg mb-4">
-                          Critical Questions
+                          {inline('Critical Questions')}
                         </motion.h3>
                         <motion.div variants={containerVariants} className="space-y-2">
-                          {analysis.questionJson.map((question: string, idx: number) => (
+                          {displayAnalysis.questionJson.map((question: string, idx: number) => (
                             <motion.div
                               key={idx}
                               variants={itemVariants}
                               className="bg-white dark:bg-[#1a1f3a]/50 border border-gray-200 dark:border-gray-800/50 rounded-xl p-4 flex items-start gap-3"
                             >
                               <span className="text-blue-600 dark:text-blue-400 font-semibold text-sm flex-shrink-0">Q{idx + 1}:</span>
-                              <p className="text-gray-600 dark:text-gray-400 text-sm">{question}</p>
+                              <p className="text-gray-600 dark:text-gray-400 text-sm"><TranslatedText text={question} /></p>
                             </motion.div>
                           ))}
                         </motion.div>
@@ -425,23 +616,23 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                 <div className="flex-1 h-auto md:h-[87vh] w-full pt-2 md:pr-5 overflow-y-auto">
                   <motion.div className="max-w-full" variants={containerVariants} initial="hidden" animate="visible">
                     <motion.h2 variants={itemVariants} className="text-black dark:text-white text-2xl mb-4">
-                      Risk Analysis
+                      {inline('Risk Analysis')}
                     </motion.h2>
                     
                     {/* Risk Summary */}
                     <motion.div variants={itemVariants} className="bg-white dark:bg-[#1a1f3a]/50 border border-gray-200 dark:border-gray-800/50 rounded-xl p-5 mb-6">
                       <div className="grid grid-cols-3 gap-4 text-center">
                         <div>
-                          <div className="text-3xl font-bold text-red-600 dark:text-red-400">{analysis.risksJson?.counts?.High || 0}</div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">High Risk</div>
+                          <div className="text-3xl font-bold text-red-600 dark:text-red-400">{displayAnalysis.risksJson?.counts?.High || 0}</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{inline('High Risk')}</div>
                         </div>
                         <div>
-                          <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{analysis.risksJson?.counts?.Medium || 0}</div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Medium Risk</div>
+                          <div className="text-3xl font-bold text-yellow-600 dark:text-yellow-400">{displayAnalysis.risksJson?.counts?.Medium || 0}</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{inline('Medium Risk')}</div>
                         </div>
                         <div>
-                          <div className="text-3xl font-bold text-green-600 dark:text-green-400">{analysis.risksJson?.counts?.Low || 0}</div>
-                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">Low Risk</div>
+                          <div className="text-3xl font-bold text-green-600 dark:text-green-400">{displayAnalysis.risksJson?.counts?.Low || 0}</div>
+                          <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">{inline('Low Risk')}</div>
                         </div>
                       </div>
                     </motion.div>
@@ -476,12 +667,12 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                             </div>
                             <div className="flex-1">
                               <div className="flex items-center gap-2 mb-2">
-                                <h4 className="text-black dark:text-white text-lg font-medium">{risk.title}</h4>
+                                <h4 className="text-black dark:text-white text-lg font-medium"><TranslatedText text={risk.title} /></h4>
                                 <span className={`px-2 py-1 rounded text-xs uppercase font-semibold ${getRiskColor(risk.severity)}`}>
-                                  {risk.severity} risk
+                                  {risk.severity} {inline('risk')}
                                 </span>
                               </div>
-                              <p className="text-gray-600 dark:text-gray-400">{risk.description}</p>
+                              <p className="text-gray-600 dark:text-gray-400"><TranslatedText text={risk.description} /></p>
                             </div>
                           </div>
                         </motion.div>
@@ -506,29 +697,29 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                 <div className="flex-1 h-auto md:h-[87vh] w-full pt-2 md:pr-5 overflow-y-auto">
                   <motion.div className="max-w-full" variants={containerVariants} initial="hidden" animate="visible">
                     <motion.h2 variants={itemVariants} className="text-black dark:text-white text-2xl mb-4">
-                      Document Clauses ({analysis.clausesJson?.total_clauses || 0})
+                      {inline('Document Clauses')} ({displayAnalysis.clausesJson?.total_clauses || 0})
                     </motion.h2>
                     
                     {/* Important Clauses First */}
-                    {analysis.clausesJson?.top_clauses && analysis.clausesJson.top_clauses.length > 0 && (
+                    {displayAnalysis.clausesJson?.top_clauses && displayAnalysis.clausesJson.top_clauses.length > 0 && (
                       <div className="mb-6">
                         <motion.h3 variants={itemVariants} className="text-black dark:text-white text-lg mb-4">
-                          ⭐ Important Clauses
+                          ⭐ {inline('Important Clauses')}
                         </motion.h3>
                         <motion.div variants={containerVariants} className="space-y-4">
-                          {analysis.clausesJson.top_clauses.map((clause: any, idx: number) => (
+                          {displayAnalysis.clausesJson.top_clauses.map((clause: any, idx: number) => (
                             <motion.div
                               key={`top-${idx}`}
                               variants={itemVariants}
                               className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border-2 border-blue-200 dark:border-blue-500/30 rounded-xl p-5"
                             >
                               <div className="flex items-start justify-between mb-3">
-                                <h4 className="text-black dark:text-white text-base font-semibold flex-1">{clause.clause}</h4>
+                                <h4 className="text-black dark:text-white text-base font-semibold flex-1"><TranslatedText text={clause.clause} /></h4>
                                 <span className="px-3 py-1 rounded-full text-xs bg-blue-600 dark:bg-blue-500 text-white font-medium">
-                                  Important
+                                  {inline('Important')}
                                 </span>
                               </div>
-                              <p className="text-gray-700 dark:text-gray-300 leading-relaxed">{clause.explanation}</p>
+                              <p className="text-gray-700 dark:text-gray-300 leading-relaxed"><TranslatedText text={clause.explanation} /></p>
                             </motion.div>
                           ))}
                         </motion.div>
@@ -537,23 +728,204 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
 
                     {/* All Clauses */}
                     <motion.h3 variants={itemVariants} className="text-black dark:text-white text-lg mb-4">
-                      All Clauses
+                      {inline('All Clauses')}
                     </motion.h3>
                     <motion.div variants={containerVariants} className="space-y-4">
-                      {(analysis.clausesJson?.all_clauses || []).map((clause: string, idx: number) => (
+                      {(displayAnalysis.clausesJson?.all_clauses || []).map((clause: string, idx: number) => (
                         <motion.div
                           key={`all-${idx}`}
                           variants={itemVariants}
                           className="bg-white dark:bg-[#1a1f3a]/50 border border-gray-200 dark:border-gray-800/50 rounded-xl p-5"
                         >
                           <div className="flex items-start justify-between mb-3">
-                            <h4 className="text-black dark:text-white font-medium">Clause {idx + 1}</h4>
-                            <span className="text-xs text-gray-500 dark:text-gray-400">Section {idx + 1}</span>
+                            <h4 className="text-black dark:text-white font-medium">{inline('Clause')} {idx + 1}</h4>
+                            <span className="text-xs text-gray-500 dark:text-gray-400">{inline('Section')} {idx + 1}</span>
                           </div>
-                          <p className="text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line">{clause}</p>
+                          <p className="text-gray-600 dark:text-gray-400 leading-relaxed whitespace-pre-line"><TranslatedText text={clause} /></p>
                         </motion.div>
                       ))}
                     </motion.div>
+                  </motion.div>
+                </div>
+                <DocumentExtrasSidebar document={document} />
+              </motion.div>
+            </TabsContent>
+
+            {/* RULEBOOK TAB */}
+            <TabsContent value="rulebook" className="m-0 px-6" asChild>
+              <motion.div
+                key="rulebook"
+                variants={tabContentVariants}
+                initial="hidden"
+                animate="visible"
+                exit="exit"
+                className="flex flex-col md:flex-row w-full h-auto"
+              >
+                <div className="flex-1 h-auto md:h-[87vh] w-full pt-2 md:pr-5 overflow-y-auto">
+                  <motion.div className="max-w-full" variants={containerVariants} initial="hidden" animate="visible">
+                    <motion.h2 variants={itemVariants} className="text-black dark:text-white text-2xl mb-4">
+                      {inline('Legal Rulebook')}
+                    </motion.h2>
+                    
+                    <motion.p variants={itemVariants} className="text-gray-600 dark:text-gray-400 mb-6 leading-relaxed">
+                      {inline('Comprehensive explanations of key legal terms found in this agreement, referenced from authoritative legal documents and rulebooks.')}
+                    </motion.p>
+
+                    {/* Loading State */}
+                    {rulebookLoading && (
+                      <motion.div
+                        variants={itemVariants}
+                        className="flex items-center justify-center py-16"
+                      >
+                        <div className="text-center max-w-md">
+                          {/* Animated Book Icon */}
+                          <div className="relative w-24 h-24 mx-auto mb-6">
+                            <div className="absolute inset-0 bg-gradient-to-br from-blue-500 to-purple-500 rounded-2xl animate-pulse"></div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <BookOpen className="w-12 h-12 text-white animate-bounce" />
+                            </div>
+                          </div>
+                          
+                          {/* Loading Text */}
+                          <h3 className="text-black dark:text-white text-xl font-semibold mb-2">
+                            {inline('Loading Legal Terms')}
+                          </h3>
+                          <p className="text-gray-600 dark:text-gray-400 mb-4">
+                            {inline('Fetching explanations from legal rulebooks...')}
+                          </p>
+                          
+                          {/* Progress Dots */}
+                          <div className="flex items-center justify-center gap-2">
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '0ms' }}></div>
+                            <div className="w-2 h-2 bg-purple-500 rounded-full animate-bounce" style={{ animationDelay: '150ms' }}></div>
+                            <div className="w-2 h-2 bg-blue-500 rounded-full animate-bounce" style={{ animationDelay: '300ms' }}></div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* Error State */}
+                    {rulebookError && !rulebookLoading && (
+                      <motion.div
+                        variants={itemVariants}
+                        className="bg-red-50 dark:bg-red-900/20 border-2 border-red-200 dark:border-red-500/30 rounded-xl p-8 text-center max-w-2xl mx-auto"
+                      >
+                        <div className="bg-red-100 dark:bg-red-500/20 rounded-full w-16 h-16 flex items-center justify-center mx-auto mb-4">
+                          <AlertTriangle className="w-8 h-8 text-red-600 dark:text-red-400" />
+                        </div>
+                        <h3 className="text-red-800 dark:text-red-300 text-xl font-semibold mb-2">
+                          {inline('Unable to Load Rulebook')}
+                        </h3>
+                        <p className="text-red-700 dark:text-red-400 text-lg mb-4">{rulebookError}</p>
+                        <p className="text-red-600 dark:text-red-500 text-sm">
+                          {inline('If the problem continues, please contact support or try refreshing the page.')}
+                        </p>
+                      </motion.div>
+                    )}
+
+                    {/* Success Message with Button (First Time Only) */}
+                    {!rulebookLoading && !rulebookError && rulebookFetched && !showRulebookContent && translatedRulebookTerms && translatedRulebookTerms.length > 0 && (
+                      <motion.div
+                        key="success-message"
+                        initial={{ scale: 0.95, opacity: 0 }}
+                        animate={{ scale: 1, opacity: 1 }}
+                        exit={{ scale: 0.95, opacity: 0 }}
+                        transition={{ duration: 0.3 }}
+                        className="bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-900/20 dark:to-emerald-900/20 border-2 border-green-200 dark:border-green-500/30 rounded-xl p-8 text-center max-w-2xl mx-auto"
+                      >
+                        <div className="bg-green-100 dark:bg-green-500/20 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-4">
+                          <BookOpen className="w-10 h-10 text-green-600 dark:text-green-400" />
+                        </div>
+                        <h3 className="text-green-800 dark:text-green-300 text-2xl font-bold mb-2">
+                          {inline('Rulebook Successfully Loaded!')}
+                        </h3>
+                        <p className="text-green-700 dark:text-green-400 text-lg mb-6">
+                          {inline('We found')} <span className="font-bold">{translatedRulebookTerms.length}</span> {inline('legal terms with detailed explanations')}
+                        </p>
+                        <Button
+                          onClick={() => {
+                            console.log('Button clicked - showing content');
+                            setShowRulebookContent(true);
+                          }}
+                          className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white px-8 py-6 text-lg font-semibold rounded-lg shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
+                        >
+                          <BookOpen className="w-5 h-5 mr-2" />
+                          {inline('View Legal Terms')}
+                        </Button>
+                      </motion.div>
+                    )}
+
+                    {/* Rulebook Terms */}
+                    {!rulebookLoading && !rulebookError && showRulebookContent && translatedRulebookTerms && translatedRulebookTerms.length > 0 && (
+                      <motion.div
+                        key="rulebook-content"
+                        initial={{ opacity: 0, y: 20 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.5 }}
+                      >
+                        {/* Terms Count */}
+                        <div className="mb-6">
+                          <div className="bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-900/20 dark:to-purple-900/20 border border-blue-200 dark:border-blue-500/30 rounded-xl p-4">
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h3 className="text-black dark:text-white font-semibold text-lg">
+                                  {translatedRulebookTerms.length} {inline('Legal Terms Explained')}
+                                </h3>
+                                <p className="text-gray-600 dark:text-gray-400 text-sm mt-1">
+                                  {inline('Based on authoritative legal references and rulebooks')}
+                                </p>
+                              </div>
+                              <BookOpen className="w-10 h-10 text-blue-600 dark:text-blue-400" />
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* Terms List */}
+                        <div className="space-y-6">
+                          {translatedRulebookTerms.map((term, idx) => (
+                            <div
+                              key={`${document.id}-term-${idx}`}
+                              className="bg-white dark:bg-[#1a1f3a]/50 border border-gray-200 dark:border-gray-800/50 rounded-xl p-6 hover:shadow-lg dark:hover:shadow-blue-500/10 transition-shadow duration-300"
+                            >
+                              {/* Term Header */}
+                              <div className="flex items-start gap-4 mb-4">
+                                <div className="flex-shrink-0 w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-bold text-lg">
+                                  {idx + 1}
+                                </div>
+                                <div className="flex-1">
+                                  <h3 className="text-black dark:text-white text-xl font-bold mb-1">
+                                    {term.term}
+                                  </h3>
+                                  <div className="flex items-center gap-2">
+                                    <span className="px-2 py-1 rounded-md bg-blue-100 dark:bg-blue-500/20 text-blue-700 dark:text-blue-300 text-xs font-medium">
+                                      {inline('Legal Term')}
+                                    </span>
+                                    <span className="px-2 py-1 rounded-md bg-purple-100 dark:bg-purple-500/20 text-purple-700 dark:text-purple-300 text-xs font-medium">
+                                      {inline('Rulebook Reference')}
+                                    </span>
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Explanation */}
+                              <div className="pl-14">
+                                <div className="bg-gray-50 dark:bg-[#141829]/50 rounded-lg p-4 border-l-4 border-blue-500">
+                                  <p className="text-gray-700 dark:text-gray-300 leading-relaxed whitespace-pre-line">
+                                    {term.explanation}
+                                  </p>
+                                </div>
+                              </div>
+
+                              {/* Footer Info */}
+                              <div className="pl-14 mt-3 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
+                                <BookOpen className="w-3 h-3" />
+                                <span>{inline('Referenced from legal documentation and case law')}</span>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
                   </motion.div>
                 </div>
                 <DocumentExtrasSidebar document={document} />
@@ -573,11 +945,11 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                 <div className="flex-1 h-auto md:h-[87vh] w-full pt-2 md:pr-5 overflow-y-auto">
                   <motion.div className="max-w-full" variants={containerVariants} initial="hidden" animate="visible">
                     <motion.h2 variants={itemVariants} className="text-black dark:text-white text-2xl mb-4">
-                      Chat with the document
+                      {inline('Chat with the document')}
                     </motion.h2>
                     <ChatInterface
-                      messages={(analysis.chatJson?.messages || []) as Message[]}
-                      onSend={(messageText: string) => onSendMessage(document.id, messageText)}
+                      documentId={document.id}
+                      documentName={document.name}
                     />
                   </motion.div>
                 </div>

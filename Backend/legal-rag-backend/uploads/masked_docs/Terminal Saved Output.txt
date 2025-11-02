@@ -1,0 +1,62 @@
+Last login: Tue Oct  1 23:07:56 on ttys000
+shubhamrade@SHUBHAMs-MacBook-Air ~ % /usr/libexec/java_home
+
+/Library/Java/JavaVirtualMachines/jdk-22.jdk/Contents/Home
+shubhamrade@SHUBHAMs-MacBook-Air ~ % cd ~/Downloads
+
+shubhamrade@SHUBHAMs-MacBook-Air Downloads % java -jar coldvl64Linux.jar
+
+java.lang.UnsatisfiedLinkError: Could not load SWT library. Reasons: 
+	no swt-gtk-4934r6 in java.library.path: /Users/shubhamrade/Library/Java/Extensions:/Library/Java/Extensions:/Network/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java:.
+	no swt-gtk in java.library.path: /Users/shubhamrade/Library/Java/Extensions:/Library/Java/Extensions:/Network/Library/Java/Extensions:/System/Library/Java/Extensions:/usr/lib/java:.
+	Can't load library: /Users/shubhamrade/.swt/lib/macosx/aarch64/libswt-gtk-4934r6.jnilib
+	Can't load library: /Users/shubhamrade/.swt/lib/macosx/aarch64/libswt-gtk.jnilib
+
+	at org.eclipse.swt.internal.Library.loadLibrary(Library.java:342)
+	at org.eclipse.swt.internal.Library.loadLibrary(Library.java:256)
+	at org.eclipse.swt.internal.C.<clinit>(C.java:19)
+	at org.eclipse.swt.internal.Converter.wcsToMbcs(Converter.java:209)
+	at org.eclipse.swt.internal.Converter.wcsToMbcs(Converter.java:155)
+	at org.eclipse.swt.widgets.Display.<clinit>(Display.java:164)
+	at java.base/java.lang.Class.forName0(Native Method)
+	at java.base/java.lang.Class.forName(Class.java:413)
+	at java.base/java.lang.Class.forName(Class.java:404)
+	at org.eclipse.swt.graphics.Device.<clinit>(Device.java:123)
+	at org.eclipse.swt.graphics.Resource.<init>(Resource.java:52)
+	at org.eclipse.swt.graphics.Image.<init>(Image.java:572)
+	at org.eclipse.gef.examples.logicdesigner.model.LogicSubpart.createImage(LogicSubpart.java:189)
+	at org.eclipse.gef.examples.logicdesigner.model.LogicDiagram.<clinit>(LogicDiagram.java:36)
+	at org.eclipse.swt.e4.examples.gef.LogicWidget.<init>(LogicWidget.java:411)
+	at org.eclipse.swt.e4.examples.gef.Simulator.<init>(Simulator.java:8)
+	at org.eclipse.swt.e4.examples.gef.Simulator.startAppln(Simulator.java:17)
+	at org.eclipse.swt.e4.examples.gef.Simulator.main(Simulator.java:38)
+	at java.base/jdk.internal.reflect.DirectMethodHandleAccessor.invoke(DirectMethodHandleAccessor.java:103)
+	at java.base/java.lang.reflect.Method.invoke(Method.java:580)
+	at org.eclipse.jdt.internal.jarinjarloader.JarRsrcLoader.main(JarRsrcLoader.java:61)
+shubhamrade@SHUBHAMs-MacBook-Air Downloads % nano ~/.zshrc
+
+
+  UW PICO 5.09            File: /Users/shubhamrade/.zshrc             Modified  
+
+export PATH=$PATH:/Library/Java/JavaVirtualMachines/jdk-22.jdk/Contents/Home/bin
+ 
+           
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+^G Get Help  ^O WriteOut  ^R Read File ^Y Prev Pg   ^K Cut Text  ^C Cur Pos   
+^X Exit      ^J Justify   ^W Where is  ^V Next Pg   ^U UnCut Text^T To Spell  

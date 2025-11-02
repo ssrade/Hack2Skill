@@ -9,28 +9,30 @@ import {
     Brain
 } from "lucide-react";
 import { motion } from "framer-motion";
+import { useTranslation } from '../contexts/TranslationContext';
 
 const Index = () => {
+    const { inline } = useTranslation();
 
     const features = [
         {
             icon: <Shield className="w-8 h-8 text-blue-400" />,
-            title: "Bank-Level Security",
-            description: "Military-grade encryption ensures your legal documents remain completely confidential and secure.",
+            title: inline("Bank-Level Security"),
+            description: inline("Military-grade encryption ensures your legal documents remain completely confidential and secure."),
             // Unique "floating" resting state
             anim: { rotateX: 10, rotateY: -15, rotateZ: 3 }
         },
         {
             icon: <Zap className="w-8 h-8 text-purple-400" />,
-            title: "Instant Analysis",
-            description: "Analyze complex legal documents in seconds with our advanced AI algorithms.",
+            title: inline("Instant Analysis"),
+            description: inline("Analyze complex legal documents in seconds with our advanced AI algorithms."),
             // Unique "floating" resting state
             anim: { rotateX: 5, rotateY: 12, rotateZ: -2 }
         },
         {
             icon: <Target className="w-8 h-8 text-green-400" />,
-            title: "Precision Insights",
-            description: "Using RAG and vertexAI with a reference of deeds book.",
+            title: inline("Precision Insights"),
+            description: inline("Using RAG and vertexAI with a reference of deeds book."),
             // Unique "floating" resting state
             anim: { rotateX: 12, rotateY: 8, rotateZ: 5 }
         }
@@ -58,7 +60,7 @@ const Index = () => {
                     transition={{ duration: 2, repeat: Infinity }}
                     className="flex flex-col items-center text-gray-400"
                 >
-                    <span className="text-sm mb-2">Scroll to explore</span>
+                    <span className="text-sm mb-2">{inline('Scroll to explore')}</span>
                     <ArrowDown className="w-5 h-5" />
                 </motion.div>
             </motion.div>
@@ -78,10 +80,10 @@ const Index = () => {
                     >
                         <div className="inline-flex items-center gap-2 bg-gradient-to-r from-blue-600/20 to-purple-600/20 backdrop-blur-sm border border-blue-400/30 rounded-full px-4 py-2 mb-4">
                             <Crown className="w-4 h-4 text-yellow-400" />
-                            <span className="text-sm text-blue-200 font-medium">Why Choose LawBuddy AI?</span>
+                            <span className="text-sm text-blue-200 font-medium">{inline('Why Choose LawBuddy AI?')}</span>
                         </div>
                         <h2 className="text-4xl md:text-5xl p-3 font-bold mb-12 bg-gradient-to-r from-blue-200 via-purple-200 to-cyan-200 bg-clip-text text-transparent">
-                            Enterprise-Grade Legal AI
+                            {inline('Enterprise-Grade Legal AI')}
                         </h2>
 
                         <div
@@ -173,13 +175,13 @@ const Index = () => {
                             </div>
                             <div>
                                 <span className="text-lg font-bold bg-gradient-to-r from-blue-300 to-purple-300 bg-clip-text text-transparent">
-                                    LawBuddy AI
+                                    {inline('LawBuddy AI')}
                                 </span>
-                                <p className="text-gray-400 text-sm">AI-Powered Legal Analysis</p>
+                                <p className="text-gray-400 text-sm">{inline('AI-Powered Legal Analysis')}</p>
                             </div>
                         </div>
                         <p className="text-gray-400 text-sm text-center md:text-right">
-                            © {new Date().getFullYear()} LawBuddy AI. Transforming legal document analysis.
+                            © {new Date().getFullYear()} {inline('LawBuddy AI. Transforming legal document analysis.')}
                         </p>
                     </div>
                 </div>

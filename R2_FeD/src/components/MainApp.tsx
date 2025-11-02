@@ -1,9 +1,8 @@
 import { DocumentSidebar } from './DocumentSidebar';
 import { DocumentView } from './DocumentView';
 import { cn } from './lib/utils';
-import { motion, AnimatePresence } from 'framer-motion'; // --- ADDED ---
+import { motion, AnimatePresence } from 'framer-motion';
 
-// --- ADDED / MOVED --- // (Moved from ChatInterface.tsx)
 export interface Message {
   id: string;
   role: 'user' | 'assistant';
@@ -11,16 +10,13 @@ export interface Message {
   timestamp: string;
   sources?: string[];
 }
-// --------------------
 
-// Document and DocumentType interfaces
 export interface Document {
   id: string;
   name: string;
   uploadDate: string;
   status: 'analyzed' | 'processing' | 'pending';
-  fileUrl?: string; // Optional: URL or blob URL for document preview
-  // ... (rest of interface)
+  fileUrl?: string;
   evals: {
     riskScore: number;
     complexity: string;
@@ -38,8 +34,7 @@ export interface Document {
     content: string;
     type: string;
   }>;
-  // store the chat history for this specific document
-  chatHistory?: Message[]; // -----------
+  chatHistory?: Message[];
 }
 export type DocumentType = 'scanned' | 'electronic';
 
@@ -53,19 +48,15 @@ interface MainAppProps {
   onSelectFromModal: (id: string) => void;
   onGoToProfile: () => void;
   onGoToAdmin: () => void;
-  // Added/Ensured these props are in the interface
   onDeleteDocument: (id: string) => void;
   onPreviewDocument: (id: string) => void;
   onDownloadDocument: (id: string) => void;
-  // --- ADDED ---
-  // This function will be passed from the parent component
-  // It handles sending a message and getting a reply.
   onSendMessage: (documentId: string, messageText: string) => Promise<void>;
-  // -----------
-  // --- ADDED for Mobile Sidebar ---
   isMobileSidebarOpen: boolean;
   setIsMobileSidebarOpen: (open: boolean) => void;
-  // --------------------------------
+  // --- ADD THESE NEW PROPS ---
+  onDeleteAllDocuments: () => void;
+  onDocumentsUpdate: () => void;
 }
 
 export function MainApp({
@@ -73,14 +64,14 @@ export function MainApp({
   selectedDocId,
   onSelectDocument,
   onUploadDialogOpenChange,
-  // Added props to destructuring
   onDeleteDocument,
   onPreviewDocument,
-  // --- ADDED ---
   onSendMessage,
   isMobileSidebarOpen,
   setIsMobileSidebarOpen,
-  // -----------
+  // --- ADD THESE TO DESTRUCTURING ---
+  onDeleteAllDocuments,
+  onDocumentsUpdate,
 }: MainAppProps) {
   const selectedDocument = documents.find(doc => doc.id === selectedDocId);
 
@@ -96,10 +87,10 @@ export function MainApp({
       <div className="absolute top-20 right-60 w-32 h-32 bg-pink-500 rounded-full blur-3xl opacity-20 dark:opacity-50 pointer-events-none z-0 animate-float-1"></div>
       <div className="absolute bottom-40 left-40 w-24 h-24 bg-teal-500 rounded-full blur-2xl opacity-30 dark:opacity-60 pointer-events-none z-0 animate-float-2"></div>
 
-      {/* App content --- MODIFIED --- */}
-      <div className="flex-1 flex overflow-auto md:overflow-hidden z-10 relative"> {/* --- ADDED relative --- */}
+      {/* App content */}
+      <div className="flex-1 flex overflow-auto md:overflow-hidden z-10 relative">
 
-        {/* --- ADDED: Mobile Sidebar (Sliding) --- */}
+        {/* Mobile Sidebar (Sliding) */}
         <AnimatePresence>
           {isMobileSidebarOpen && (
             <>
@@ -127,14 +118,17 @@ export function MainApp({
                   onUploadClick={() => onUploadDialogOpenChange(true)}
                   onPreviewDocument={onPreviewDocument}
                   onDeleteDocument={onDeleteDocument}
+                  // --- ADD THESE PROPS ---
+                  onDeleteAllDocuments={onDeleteAllDocuments}
+                  onDocumentsUpdate={onDocumentsUpdate}
                 />
               </motion.div>
             </>
           )}
         </AnimatePresence>
 
-        {/* --- ADDED: Desktop Sidebar (Static) --- */}
-        <div className="hidden lg:block flex-shrink-0"> {/* Wrapper to hide on mobile and prevent shrinking */}
+        {/* Desktop Sidebar (Static) */}
+        <div className="hidden lg:block flex-shrink-0">
           <DocumentSidebar
             documents={documents}
             selectedDocId={selectedDocId}
@@ -142,16 +136,17 @@ export function MainApp({
             onUploadClick={() => onUploadDialogOpenChange(true)}
             onPreviewDocument={onPreviewDocument}
             onDeleteDocument={onDeleteDocument}
+            // --- ADD THESE PROPS ---
+            onDeleteAllDocuments={onDeleteAllDocuments}
+            onDocumentsUpdate={onDocumentsUpdate}
           />
         </div>
 
-        {/* --- MODIFIED: DocumentView (Main Content) --- */}
+        {/* DocumentView (Main Content) */}
         <DocumentView
           document={selectedDocument}
           onSendMessage={onSendMessage}
-          // --- ADDED: Pass the mobile sidebar toggle ---
           onToggleMobileSidebar={() => setIsMobileSidebarOpen(true)}
-          // ---------------------------------------------
         />
       </div>
     </div>

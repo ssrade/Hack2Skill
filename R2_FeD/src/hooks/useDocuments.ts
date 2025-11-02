@@ -3,121 +3,131 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import type { Document, Message, DocumentType } from '../components/MainApp';
-import initialDocuments from '../components/lib/documents';
-
-// This is the shape of the data we expect from our chat API
-type ChatHistoryRecord = {
-  docId: string;
-  chatHistory: Message[];
-};
+import { getAllDocuments } from '../api/agreementApi';
+import { uploadDocument } from '../api/uploadDocument';
+import { deleteDocument } from '../api/deleteDocumentApi';
+import { sendRAGQuery } from '../api/ragQueryApi';
 
 export function useDocuments(isAuthenticated: boolean) {
   const [documents, setDocuments] = useState<Document[]>([]);
-  // We can keep this for the chat fetch
   const [isLoadingDocs, setIsLoadingDocs] = useState(true); 
-  const { authToken } = useAuth();
+  const { user } = useAuth();
 
-  // --- 2. LOAD DOCS AND MERGE CHATS ---
+  // Load documents from backend
   useEffect(() => {
-    if (isAuthenticated) {
+    if (isAuthenticated && user) {
       setIsLoadingDocs(true);
       
-      // --- Step A: Use bundled demo documents as the starting set ---
-      // Documents are expected to be persisted on the backend in production.
-      // For now we keep them in-memory and use the bundled `initialDocuments`.
-      const localDocuments = initialDocuments.map(doc => ({ ...doc, chatHistory: doc.chatHistory || [] }));
-
-      // --- Step B: Fetch documents from backend (if available). Server is source of truth.
       const fetchServerDocs = async () => {
         try {
-          const { fetchDocumentsFromServer } = await import('./documentsApi');
-          const serverDocs: Document[] = await fetchDocumentsFromServer(authToken || undefined);
-
-          // Ensure chatHistory exists on each doc and then merge any demo docs missing on server
-          const normalizedServer = serverDocs.map(d => ({ ...d, chatHistory: (d as any).chatHistory || [] }));
-
-          const merged = [
-            ...normalizedServer,
-            ...initialDocuments
-              .filter(d => !normalizedServer.find(sd => sd.id === d.id))
-              .map(doc => ({ ...doc, chatHistory: doc.chatHistory || [] })),
-          ];
-
-          setDocuments(merged);
+          const serverDocs = await getAllDocuments();
+          setDocuments(serverDocs);
         } catch (error) {
           console.error('Failed to fetch documents from server:', error);
-          // Fallback to bundled demo docs if server fetch fails
-          setDocuments(localDocuments);
+          setDocuments([]);
+        } finally {
+          setIsLoadingDocs(false);
         }
-        setIsLoadingDocs(false);
       };
 
       fetchServerDocs();
-
     } else {
-      setDocuments([]); // Clear docs on logout
+      setDocuments([]);
+      setIsLoadingDocs(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, user]);
 
-  // --- 3. UPLOAD IS LOCAL-ONLY ---
-  // This function is simple again. No `async`, no API call.
-  const handleUploadDocument = (file: File, documentType: DocumentType) => {
+  // Upload document to backend
+  const handleUploadDocument = async (file: File, documentType: DocumentType) => {
+    if (!user?.id) {
+      console.error('No user ID available');
+      return null;
+    }
+
     console.log(`Uploading ${file.name} of type ${documentType}`);
-    const fileUrl = URL.createObjectURL(file);
-    const newDoc: Document = {
-      id: Date.now().toString(), // Local-only ID
+    
+    // Create temporary local doc for immediate UI feedback
+    const tempFileUrl = URL.createObjectURL(file);
+    const tempDoc: Document = {
+      id: `temp-${Date.now()}`,
       name: file.name,
       uploadDate: new Date().toISOString().split('T')[0],
-      status: 'analyzed',
-      fileUrl: fileUrl,
+      status: 'uploading' as any,
+      fileUrl: tempFileUrl,
       evals: {
-        riskScore: Math.floor(Math.random() * 100),
-        complexity: ['Low', 'Medium', 'High'][Math.floor(Math.random() * 3)],
-        clauses: Math.floor(Math.random() * 30) + 5
+        riskScore: 0,
+        complexity: 'Low',
+        clauses: 0
       },
-      risks: [{ id: `r${Date.now()}`, title: 'Sample Risk', severity: 'medium', description: '...'}],
-      clauses: [{ id: `c${Date.now()}`, title: 'Sample Clause', content: '...', type: 'General'}],
-      chatHistory: [], // Starts empty
+      risks: [],
+      clauses: [],
+      chatHistory: [],
     };
 
-    // Add the local doc immediately for a snappy UX
-    setDocuments(prev => [newDoc, ...prev]);
+    setDocuments(prev => [tempDoc, ...prev]);
 
-    // --- Background: attempt to upload to server and merge server response ---
-    (async () => {
-      try {
-  const { uploadDocumentToServer } = await import('./documentsApi');
-  const serverDoc = await uploadDocumentToServer(file, documentType, authToken || undefined);
+    try {
+      const userId = String(user.id); // Convert to string
+      const uploadedDoc = await uploadDocument(file, userId);
+      
+      // Replace temp doc with real one from server
+      setDocuments(prev => prev.map(d => 
+        d.id === tempDoc.id 
+          ? {
+              id: uploadedDoc.id,
+              name: uploadedDoc.title || file.name,
+              uploadDate: uploadedDoc.createdAt || new Date().toISOString().split('T')[0],
+              status: 'analyzed',
+              fileUrl: uploadedDoc.fileUrl || '',
+              evals: {
+                riskScore: 0,
+                complexity: 'Low',
+                clauses: 0
+              },
+              risks: [],
+              clauses: [],
+              chatHistory: [],
+            }
+          : d
+      ));
 
-        // Merge server values (id, fileUrl, metadata) into the local doc
-        setDocuments(prev => prev.map(d => d.id === newDoc.id ? { ...d, ...serverDoc } : d));
-        console.log('Document uploaded to server and merged:', serverDoc);
-      } catch (err) {
-        // Keep local doc if upload fails; console log for now
-        console.warn('Background upload failed, keeping local doc:', err);
-      }
-    })();
-
-    return newDoc; // Return it so App.tsx can select it
-  };
-
-  // --- 4. DELETE IS LOCAL-ONLY ---
-  // No `async`, no API call.
-  const handleDeleteDocument = (id: string) => {
-    const doc = documents.find(d => d.id === id);
-    if (doc?.fileUrl) {
-      URL.revokeObjectURL(doc.fileUrl);
+      // Cleanup temp blob URL
+      URL.revokeObjectURL(tempFileUrl);
+      
+      console.log('✅ Document uploaded successfully:', uploadedDoc);
+      return uploadedDoc;
+    } catch (err) {
+      console.error('❌ Upload failed:', err);
+      // Remove temp doc on failure
+      setDocuments(prev => prev.filter(d => d.id !== tempDoc.id));
+      URL.revokeObjectURL(tempFileUrl);
+      throw err;
     }
-    setDocuments(prev => prev.filter(doc => doc.id !== id));
-    console.log("Deleting document locally:", id);
-    
-    // You *could* add an API call here to delete the chat history
-    // fetch(`/api/chats/${id}`, { method: 'DELETE' });
-    // But it's not required.
   };
 
-  // --- 5. SEND MESSAGE IS THE *ONLY* MAIN API CALL ---
+  // Delete document from backend
+  const handleDeleteDocument = async (id: string) => {
+    try {
+      await deleteDocument(id);
+      
+      // Remove from local state
+      const doc = documents.find(d => d.id === id);
+      if (doc?.fileUrl) {
+        URL.revokeObjectURL(doc.fileUrl);
+      }
+      setDocuments(prev => prev.filter(doc => doc.id !== id));
+      
+      console.log("✅ Document deleted:", id);
+    } catch (error) {
+      console.error("❌ Failed to delete document:", error);
+      throw error;
+    }
+  };
+
+  // Send message using RAG API
   const handleSendMessage = async (documentId: string, messageText: string) => {
+    console.log('🔵 Sending message', { documentId, messageText });
+    
     const userMessage: Message = {
       id: Date.now().toString(),
       role: 'user',
@@ -130,7 +140,7 @@ export function useDocuments(isAuthenticated: boolean) {
 
     const currentChatHistory = doc.chatHistory || [];
 
-    // Optimistic Update 1 (Show user message)
+    // Show user message immediately
     setDocuments(prevDocs =>
       prevDocs.map(d =>
         d.id === documentId
@@ -139,45 +149,56 @@ export function useDocuments(isAuthenticated: boolean) {
       )
     );
 
-    // --- Simulate AI Reply ---
-    await new Promise(res => setTimeout(res, 1000));
-    const assistantMessage: Message = {
-      id: (Date.now() + 1).toString(),
-      role: 'assistant',
-      content: `[Chat reply for ${doc.name}] You said: "${messageText}"`,
-      timestamp: new Date().toISOString(),
-      sources: ["Source 1", 
-        "Source 2"
-      ]
-    };
-    // -----------------------
-
-    const newChatHistory = [...currentChatHistory, userMessage, assistantMessage];
-
-    // Optimistic Update 2 (Show assistant message)
-    setDocuments(prevDocs =>
-      prevDocs.map(d =>
-        d.id === documentId
-          ? { ...d, chatHistory: newChatHistory }
-          : d
-      )
-    );
-
-    // --- API CALL: SAVE *JUST* THIS CHAT HISTORY ---
     try {
-  // Use the documentsApi helper to save chat history (boilerplate moved there)
-  const { saveChatHistory } = await import('./documentsApi');
-  await saveChatHistory(documentId, newChatHistory, authToken || undefined);
-      console.log(`Chat history saved for doc ${documentId}`);
+      const response = await sendRAGQuery(documentId, messageText);
 
-    } catch (error) {
-      console.error("Failed to save chat:", error);
-      // Don't rollback on failure to avoid disappearing messages. Keep optimistic UI and
-      // optionally show a UI indicator for unsynced messages in a follow-up.
+      const assistantMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: response.answer, // Extract answer from QueryResponse
+        timestamp: new Date().toISOString(),
+      };
+
+      const newChatHistory = [...currentChatHistory, userMessage, assistantMessage];
+
+      setDocuments(prevDocs =>
+        prevDocs.map(d =>
+          d.id === documentId
+            ? { ...d, chatHistory: newChatHistory }
+            : d
+        )
+      );
+
+      console.log(`✅ Chat response received for doc ${documentId}`);
+    } catch (error: any) {
+      console.error("❌ Failed to send message:", error);
+      
+      let errorContent = 'Sorry, I encountered an error processing your request. Please try again.';
+      
+      if (error?.message?.includes('Chat session not found') || 
+          error?.message?.includes('chatSessionId') ||
+          error?.message?.includes('document has been fully processed')) {
+        errorContent = 'Chat session not available yet. Please ensure the document has been fully processed. If this persists, try refreshing the page.';
+      }
+      
+      const errorMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        role: 'assistant',
+        content: errorContent,
+        timestamp: new Date().toISOString(),
+      };
+
+      const newChatHistory = [...currentChatHistory, userMessage, errorMessage];
+      setDocuments(prevDocs =>
+        prevDocs.map(d =>
+          d.id === documentId
+            ? { ...d, chatHistory: newChatHistory }
+            : d
+        )
+      );
     }
   };
 
-  // (Download is local-only)
   const handleDownloadDocument = (id: string) => {
     const doc = documents.find(d => d.id === id);
     if (doc?.fileUrl) {

@@ -2,83 +2,125 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>WebSocket STT</title>
+<title>STT - Send On Silence (WebSocket)</title>
 <style>
 #transcript {
-    border: 1px solid #ccc;
-    padding: 10px;
-    width: 500px;
-    height: 150px;
-    overflow-y: auto;
-    white-space: pre-wrap;
+  border: 1px solid #ccc;
+  padding: 10px;
+  width: 500px;
+  height: 150px;
+  overflow-y: auto;
+  white-space: pre-wrap;
 }
 </style>
 </head>
 <body>
-<h2>STT Demo</h2>
+<h2>🎤 STT Demo (Send On Silence)</h2>
 <button id="startBtn">Start</button>
-<button id="stopBtn" disabled>Stop</button>
+<div id="status"></div>
 <div id="transcript"></div>
 
 <script>
 const startBtn = document.getElementById("startBtn");
-const stopBtn = document.getElementById("stopBtn");
+const statusDiv = document.getElementById("status");
 const transcriptDiv = document.getElementById("transcript");
 
 let ws;
 let mediaRecorder;
+let audioChunks = [];
+let silenceTimer;
+const silenceDelay = 2000; // stop after 2 sec silence
 
 startBtn.onclick = async () => {
-    ws = new WebSocket("ws://localhost:3001/speech/ws");
+  ws = new WebSocket("ws://localhost:3001/speech/ws");
 
-    ws.onopen = () => {
-        console.log("WebSocket connected");
-        startBtn.disabled = true;
-        stopBtn.disabled = false;
+  ws.onopen = async () => {
+    console.log("✅ WebSocket connected");
+    statusDiv.innerText = "Listening...";
+    startBtn.disabled = true;
+
+    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+    const audioContext = new AudioContext();
+    const source = audioContext.createMediaStreamSource(stream);
+    const analyser = audioContext.createAnalyser();
+    analyser.fftSize = 512;
+    source.connect(analyser);
+
+    const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+    mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+    audioChunks = [];
+
+    mediaRecorder.ondataavailable = (e) => {
+      if (e.data.size > 0) audioChunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = async () => {
+      console.log("🛑 Stopped recording. Sending audio...");
+      statusDiv.innerText = "Processing speech...";
+
+      const audioBlob = new Blob(audioChunks, { type: "audio/webm;codecs=opus" });
+      const buffer = await audioBlob.arrayBuffer();
+      ws.send(new Uint8Array(buffer)); // send entire recording to backend
+
+      ws.send(JSON.stringify({ event: "stop" })); // optional stop signal (backend may ignore)
     };
 
     ws.onmessage = (event) => {
-        console.log("Raw message from server:", event.data);
-        try {
-            const data = JSON.parse(event.data);
-            // Adjust according to what backend sends
-            const text = data.transcript || data.text || data.results?.[0]?.alternatives?.[0]?.transcript;
-            if (text) {
-                transcriptDiv.innerText += text + " ";
-                transcriptDiv.scrollTop = transcriptDiv.scrollHeight;
-            }
-        } catch (err) {
-            console.error("Error parsing server message:", err);
+      try {
+        const data = JSON.parse(event.data);
+        const text = data.transcript || data.text || data.results?.[0]?.alternatives?.[0]?.transcript;
+        if (text) {
+          transcriptDiv.innerHTML = `<strong>Transcript:</strong><br>${text}`;
+          statusDiv.innerText = "✅ Done";
         }
+      } catch (err) {
+        console.error("Error parsing server message:", err);
+      }
     };
 
     ws.onerror = (err) => console.error("WebSocket error:", err);
     ws.onclose = () => console.log("WebSocket closed");
 
-    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-    mediaRecorder = new MediaRecorder(stream, { mimeType: "audio/webm;codecs=opus" });
+    mediaRecorder.start();
 
-    mediaRecorder.ondataavailable = (e) => {
-        if (ws.readyState === WebSocket.OPEN) {
-            e.data.arrayBuffer().then(buffer => {
-                ws.send(new Uint8Array(buffer));
-            });
-        }
-    };
-
-    mediaRecorder.start(1000); // chunk every 250ms
+    // 🎤 Start silence detection
+    detectSilence(analyser);
+  };
 };
 
-stopBtn.onclick = () => {
-    if (mediaRecorder && mediaRecorder.state !== "inactive") {
-        mediaRecorder.stop();
+// 🧠 Silence detection loop
+function detectSilence(analyser) {
+  const dataArray = new Uint8Array(analyser.frequencyBinCount);
+
+  const check = () => {
+    analyser.getByteFrequencyData(dataArray);
+    const avg = dataArray.reduce((a, b) => a + b, 0) / dataArray.length;
+
+    if (avg < 5) { // silence threshold
+      if (!silenceTimer) {
+        silenceTimer = setTimeout(stopRecording, 2000);
+      }
+    } else {
+      clearTimeout(silenceTimer);
+      silenceTimer = null;
     }
-    if (ws && ws.readyState === WebSocket.OPEN) {
-        ws.close();
-    }
-    startBtn.disabled = false;
-    stopBtn.disabled = true;
-};
+
+    requestAnimationFrame(check);
+  };
+
+  check();
+}
+
+// 🛑 Stop when silence is detected
+function stopRecording() {
+  console.log("Silence detected — stopping recording...");
+  if (mediaRecorder && mediaRecorder.state !== "inactive") {
+    mediaRecorder.stop();
+  }
+  startBtn.disabled = false;
+  statusDiv.innerText = "Stopped listening.";
+}
 </script>
 </body>
 </html>

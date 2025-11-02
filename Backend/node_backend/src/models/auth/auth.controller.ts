@@ -70,15 +70,23 @@ export const updateProfilePhotoController = async (req: Request, res: Response, 
  */
 export const googleLoginController = async (req: Request, res: Response, next: NextFunction) => {
   try {
+    console.log('📥 Google Login Request Received');
+    console.log('📋 Request Body:', req.body);
+    
     const { idToken } = req.body
 
     if (!idToken) {
+      console.log('❌ No idToken provided');
       return res.status(400).json({ error: 'idToken is required' })
     }
 
+    console.log('✅ idToken received, calling service...');
     const result = await googleLoginService(idToken)
+    
+    console.log('✅ Service completed, sending response');
     return res.status(200).json(result)
   } catch (err: any) {
+    console.error('❌ Google Login Controller Error:', err.message);
     return res.status(400).json({ error: err.message || 'Google login failed' })
   }
 }

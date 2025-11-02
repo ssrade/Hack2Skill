@@ -6,10 +6,12 @@ import { Scale, Sparkles, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { motion } from 'framer-motion';
 import { cn } from '../components/lib/utils';
-import { useGoogleLogin } from '@react-oauth/google';
+import { GoogleLogin } from '@react-oauth/google';
+import type { CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
 import { login, googleLogin } from '../api/authApi';
+import { useTranslation } from '../contexts/TranslationContext';
 
 interface LoginPageProps {
   onLogin: () => void;
@@ -24,6 +26,7 @@ export function LoginPage({ onLogin, onSwitchToSignup }: LoginPageProps) {
   const [showPassword, setShowPassword] = useState(false);
   const { login: authLogin } = useAuth();
   const navigate = useNavigate();
+  const { inline, t } = useTranslation();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,113 +53,71 @@ export function LoginPage({ onLogin, onSwitchToSignup }: LoginPageProps) {
     } catch (err: any) {
       console.error('Login error:', err);
       const serverMsg = err.response?.data?.error || err.response?.data?.message || err.message;
-      setError(serverMsg || 'Invalid email or password');
+      const translatedError = await t(serverMsg || 'Invalid email or password');
+      setError(translatedError);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleGoogleLogin = useGoogleLogin({
-    onSuccess: async (response: any) => {
-      setIsLoading(true);
-      setError('');
+  const handleGoogleLogin = async (credentialResponse: CredentialResponse) => {
+    setIsLoading(true);
+    setError('');
 
-      try {
-        // If we have a credential (ID token)
-        if (response?.credential) {
-          const backendResponse = await googleLogin({ idToken: response.credential });
-          const { token, user } = backendResponse;
-
-          // Store in localStorage (used by axios interceptor)
-          localStorage.setItem('authToken', token);
-          localStorage.setItem('user', JSON.stringify(user));
-
-          authLogin(token, user);
-          navigate('/app');
-          onLogin();
-          return;
-        }
-
-        // If we have an access token, get user info first
-        if (response?.access_token) {
-          const res = await fetch(
-            `https://www.googleapis.com/oauth2/v3/userinfo?access_token=${response.access_token}`
-          );
-          
-          if (!res.ok) throw new Error(`Failed to fetch user info: ${res.status}`);
-          
-          const profile = await res.json();
-          
-          // Try to exchange Google token with backend
-          await setUserFromProfile(profile, response.access_token);
-          navigate('/app');
-          onLogin();
-          return;
-        }
-
-        throw new Error('No credential or access_token returned from Google');
-      } catch (err: any) {
-        console.error('Google login error:', err);
-        const serverMsg = err.response?.data?.error || err.response?.data?.message || err.message;
-        setError(serverMsg || 'Failed to sign in with Google');
-      } finally {
-        setIsLoading(false);
-      }
-    },
-    onError: () => {
-      setError('Google sign-in failed. Please try again.');
-    },
-  });
-
-  async function setUserFromProfile(profile: any, access_token: string) {
     try {
-      // Try to exchange the Google access token with the backend
-      const candidates = [
-        { accessToken: access_token },
-        { access_token },
-        { idToken: access_token },
-      ];
+      console.log('🔐 Google Login Started');
+      console.log('📋 Credential Response:', credentialResponse);
       
-      for (const payload of candidates) {
-        try {
-          const backendResp: any = await googleLogin(payload as any);
-          if (backendResp?.token) {
-            const { token, user } = backendResp;
-            
-            // Store in localStorage (used by axios interceptor)
-            localStorage.setItem('authToken', token);
-            localStorage.setItem('user', JSON.stringify(user));
-            
-            authLogin(token, user);
-            return;
-          }
-        } catch {
-          // ignore and try next payload shape
-        }
+      if (!credentialResponse.credential) {
+        throw new Error('No credential returned from Google');
       }
-    } catch (err) {
-      console.warn('setUserFromProfile: backend exchange failed', err);
-    }
 
-    // Fallback: build a minimal user object from the Google profile
-    const maybeUser = {
-      id: profile.sub ?? profile.id ?? profile.email,
-      email: profile.email,
-      name: profile.name ?? (`${profile.given_name ?? ''} ${profile.family_name ?? ''}`.trim() || undefined),
-      picture: profile.picture ?? profile.avatar,
-    };
+      console.log('📤 Sending ID token to backend...');
+      console.log('🎫 ID Token (first 50 chars):', credentialResponse.credential.substring(0, 50));
 
-    const user = Object.fromEntries(Object.entries(maybeUser).filter(([, v]) => v != null));
-    
-    // Store in localStorage
-    if (access_token) {
-      localStorage.setItem('authToken', access_token);
+      // Send ID token to backend
+      const backendResponse = await googleLogin({ idToken: credentialResponse.credential });
+      
+      console.log('✅ Backend Response:', backendResponse);
+      
+      const { token, user } = backendResponse;
+
+      console.log('💾 Storing in localStorage...');
+      console.log('👤 User Data:', user);
+      console.log('🎫 JWT Token (first 50 chars):', token.substring(0, 50));
+
+      // Store in localStorage (used by axios interceptor)
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('user', JSON.stringify(user));
+
+      console.log('🔄 Calling authLogin...');
+      authLogin(token, user);
+      
+      console.log('🚀 Navigating to /app...');
+      navigate('/app');
+      onLogin();
+      
+      console.log('✅ Google Login Complete!');
+    } catch (err: any) {
+      console.error('❌ Google login error:', err);
+      console.error('📊 Error details:', {
+        message: err.message,
+        response: err.response?.data,
+        status: err.response?.status
+      });
+      
+      const serverMsg = err.response?.data?.error || err.response?.data?.message || err.message;
+      const translatedError = await t(serverMsg || 'Failed to sign in with Google');
+      setError(translatedError);
+    } finally {
+      setIsLoading(false);
     }
-    localStorage.setItem('user', JSON.stringify(user));
-    
-    // Update auth context
-    authLogin(access_token, user);
-  }
+  };
+
+  const handleGoogleLoginError = async () => {
+    const translatedError = await t('Google sign-in failed. Please try again.');
+    setError(translatedError);
+  };
 
   return (
     <div
@@ -190,13 +151,13 @@ export function LoginPage({ onLogin, onSwitchToSignup }: LoginPageProps) {
           </div>
           <Badge className="bg-white dark:bg-gray-800/60 text-blue-700 dark:text-blue-100 border border-blue-200 dark:border-blue-400/30 px-4 py-1.5 rounded-full text-sm font-medium">
             <Sparkles className="w-4 h-4 mr-2 text-blue-600 dark:text-blue-300" />
-            AI-Powered Legal Intelligence
+            {inline('AI-Powered Legal Intelligence')}
           </Badge>
         </motion.div>
 
         {/* Login Card */}
         <div className="bg-white/80 dark:bg-[#1a1f3a]/50 backdrop-blur-xl border border-gray-200 dark:border-gray-800/50 rounded-2xl p-8 shadow-2xl">
-          <h2 className="text-black dark:text-white text-xl mb-6 text-center">Welcome Back</h2>
+          <h2 className="text-black dark:text-white text-xl mb-6 text-center">{inline('Welcome Back')}</h2>
 
           {/* Error Message */}
           {error && (
@@ -207,13 +168,13 @@ export function LoginPage({ onLogin, onSwitchToSignup }: LoginPageProps) {
 
           <form onSubmit={handleSubmit} className="space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">Email</Label>
+              <Label htmlFor="email" className="text-gray-700 dark:text-gray-300">{inline('Email')}</Label>
               <Input
                 id="email"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="your@email.com"
+                placeholder={inline('your@email.com')}
                 className="bg-white dark:bg-[#0f1629] border-gray-300 dark:border-gray-700 text-black dark:text-white placeholder:text-gray-400 dark:placeholder:text-gray-500 focus:border-blue-500"
                 required
                 disabled={isLoading}
@@ -222,9 +183,9 @@ export function LoginPage({ onLogin, onSwitchToSignup }: LoginPageProps) {
 
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">Password</Label>
+                <Label htmlFor="password" className="text-gray-700 dark:text-gray-300">{inline('Password')}</Label>
                 <a href="#" className="text-sm text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300">
-                  Forgot password?
+                  {inline('Forgot password?')}
                 </a>
               </div>
               <div className="relative">
@@ -256,7 +217,7 @@ export function LoginPage({ onLogin, onSwitchToSignup }: LoginPageProps) {
                 className="rounded border-gray-400 dark:border-gray-700"
               />
               <label htmlFor="remember" className="text-sm text-gray-600 dark:text-gray-400">
-                Remember me for 30 days
+                {inline('Remember me for 30 days')}
               </label>
             </div>
 
@@ -268,12 +229,12 @@ export function LoginPage({ onLogin, onSwitchToSignup }: LoginPageProps) {
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Signing in...
+                  {inline('Signing in...')}
                 </>
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 mr-2" />
-                  Sign In
+                  {inline('Sign In')}
                 </>
               )}
             </Button>
@@ -282,46 +243,31 @@ export function LoginPage({ onLogin, onSwitchToSignup }: LoginPageProps) {
           {/* --- OR Separator --- */}
           <div className="flex items-center gap-4 my-6">
             <div className="flex-1 h-px bg-gray-300 dark:bg-gray-700"></div>
-            <span className="text-gray-500 dark:text-gray-400 text-xs">OR</span>
+            <span className="text-gray-500 dark:text-gray-400 text-xs">{inline('OR')}</span>
             <div className="flex-1 h-px bg-gray-300 dark:bg-gray-700"></div>
           </div>
 
           {/* --- Google Sign-In Button --- */}
           <div className="w-full flex items-center justify-center">
-            <Button
-              type="button"
-              onClick={() => handleGoogleLogin()}
-              disabled={isLoading}
-              className="w-full bg-white dark:bg-transparent border border-gray-300 dark:border-gray-700 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center justify-center h-11 transition-all duration-300"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  Signing in...
-                </>
-              ) : (
-                <>
-                  <svg className="w-4 h-4 mr-2" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden>
-                    <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
-                    <path fill="#FF3D00" d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z" />
-                    <path fill="#4CAF50" d="m24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.108-11.283-7.404l-6.571 4.819C9.656 39.663 16.318 44 24 44z" />
-                    <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C39.756 34.631 44 27.925 44 20c0-1.341-.138-2.65-.389-3.917z" />
-                  </svg>
-                  Sign In with Google
-                </>
-              )}
-            </Button>
+            <GoogleLogin
+              onSuccess={handleGoogleLogin}
+              onError={handleGoogleLoginError}
+              theme="outline"
+              size="large"
+              text="signin_with"
+              width="384"
+            />
           </div>
 
           <div className="mt-6 text-center">
             <p className="text-gray-600 dark:text-gray-400 text-sm">
-              Don't have an account?{' '}
+              {inline("Don't have an account?")}{' '}
               <button
                 onClick={onSwitchToSignup}
                 className="text-blue-600 dark:text-blue-400 hover:text-blue-500 dark:hover:text-blue-300"
                 disabled={isLoading}
               >
-                Sign up
+                {inline('Sign up')}
               </button>
             </p>
           </div>

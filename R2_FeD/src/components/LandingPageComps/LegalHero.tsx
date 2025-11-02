@@ -4,25 +4,27 @@ import { Button } from "../ui/button";
 import { Badge } from "../ui/badge";
 import { motion } from "framer-motion";
 import { useNavigate } from 'react-router-dom';
+import { useTranslation } from '../../contexts/TranslationContext';
 
 export const LegalHero = () => {
+  const { inline } = useTranslation();
   const [showDemo, setShowDemo] = useState(false);
   const navigate = useNavigate();
   const features = [
     {
       icon: <Brain className="w-5 h-5" />,
-      title: "AI-Powered Analysis",
-      description: "Advanced language models trained on millions of legal documents"
+      title: inline("AI-Powered Analysis"),
+      description: inline("Advanced language models trained on millions of legal documents")
     },
     {
       icon: <Shield className="w-5 h-5" />,
-      title: "Risk Detection",
-      description: "Identify potential legal and financial risks in seconds"
+      title: inline("Risk Detection"),
+      description: inline("Identify potential legal and financial risks in seconds")
     },
     {
       icon: <FileCheck className="w-5 h-5" />,
-      title: "Plain English",
-      description: "Complex legal jargon translated to clear, actionable insights"
+      title: inline("Plain English"),
+      description: inline("Complex legal jargon translated to clear, actionable insights")
     }
   ];
 
@@ -52,12 +54,12 @@ export const LegalHero = () => {
                 <Scale className="w-7 h-7 text-white" />
               </div>
               <h4 className="text-3xl sm:text-6xl lg:text-6xl font-extrabold bg-gradient-to-r from-blue-300 via-indigo-200 to-purple-300 bg-clip-text text-transparent leading-tight">
-                LawBuddy AI
+                {inline('LawBuddy AI')}
               </h4>
             </div>
             <Badge className="bg-gray-800/60 text-blue-100 border border-blue-400/30 px-4 py-1.5 rounded-full text-sm font-medium">
               <Sparkles className="w-4 h-4 mr-2 text-blue-300" />
-              AI-Powered Legal Intelligence
+              {inline('AI-Powered Legal Intelligence')}
             </Badge>
           </motion.div>
 
@@ -68,9 +70,9 @@ export const LegalHero = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.1 }}
           >
-            Demystify Legal Documents
+            {inline('Demystify Legal Documents')}
             <span className="block mt-3 bg-gradient-to-r from-blue-400 via-indigo-300 to-purple-300 bg-clip-text text-transparent">
-              With AI Precision
+              {inline('With AI Precision')}
             </span>
           </motion.h3>
 
@@ -81,8 +83,8 @@ export const LegalHero = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2 }}
           >
-            Transform complex legal language into clear, actionable insights.
-            <span className="text-white font-medium"> Protect your interests</span> with AI-powered analysis that identifies risks and opportunities in seconds.
+            {inline('Transform complex legal language into clear, actionable insights.')}
+            <span className="text-white font-medium"> {inline('Protect your interests')}</span> {inline('with AI-powered analysis that identifies risks and opportunities in seconds.')}
           </motion.p>
 
           {/* CTA Buttons */}
@@ -98,7 +100,7 @@ export const LegalHero = () => {
               className="bg-gradient-to-r from-blue-600 to-purple-600 text-white hover:from-blue-500 hover:to-purple-500 shadow-lg transition-all duration-300 px-7 py-3.5 rounded-lg group text-lg font-semibold"
             >
               <Rocket className="w-5 h-5 mr-2 group-hover:rotate-45 transition-transform duration-300" />
-              Start Free Analysis
+              {inline('Start Free Analysis')}
               <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform duration-300" />
             </Button>
 
@@ -108,7 +110,7 @@ export const LegalHero = () => {
               className="bg-gradient-to-r from-blue-700/80 via-purple-700/70 to-blue-700/80 text-white hover:from-blue-600/80 hover:to-purple-600/80 shadow-md transition-all duration-300 px-7 py-3.5 rounded-lg group text-lg font-semibold"
             >
               <Play className="w-5 h-5 mr-2 group-hover:scale-110 transition-transform duration-300" />
-              Watch Demo
+              {inline('Watch Demo')}
             </Button>
 
           </motion.div>
@@ -122,19 +124,19 @@ export const LegalHero = () => {
           >
             <div className="flex items-center gap-2 bg-gray-800/40 px-3 py-1.5 rounded-full">
               <CheckCircle className="w-4 h-4 text-green-400" />
-              <span>No credit card required</span>
+              <span>{inline('No credit card required')}</span>
             </div>
             <div className="flex items-center gap-2 bg-gray-800/40 px-3 py-1.5 rounded-full">
               <Globe className="w-4 h-4 text-blue-400" />
-              <span>10,000+ professionals</span>
+              <span>{inline('10,000+ professionals')}</span>
             </div>
             <div className="flex items-center gap-2 bg-gray-800/40 px-3 py-1.5 rounded-full">
               <Lock className="w-4 h-4 text-amber-400" />
-              <span>Bank-level security</span>
+              <span>{inline('Bank-level security')}</span>
             </div>
             <div className="flex items-center gap-2 bg-gray-800/40 px-3 py-1.5 rounded-full">
               <Languages className="w-4 h-4 text-amber-400" />
-              <span>Multi-Lingual Support</span>
+              <span>{inline('Multi-Lingual Support')}</span>
             </div>
           </motion.div>
 
@@ -179,7 +181,7 @@ export const LegalHero = () => {
             className="relative z-50 w-[90%] max-w-4xl bg-slate-900 rounded-2xl shadow-2xl overflow-hidden"
           >
             <div className="flex items-start justify-between p-3 border-b border-slate-800">
-              <div className="text-sm text-slate-200 font-medium">Product Demo</div>
+              <div className="text-sm text-slate-200 font-medium">{inline('Product Demo')}</div>
               <div className="flex items-center gap-2">
                 <a
                   href="https://youtu.be/zYEOnBpakZA?si=eNdK1RR2JpOrjn_u"
@@ -187,13 +189,13 @@ export const LegalHero = () => {
                   rel="noreferrer"
                   className="text-slate-200 hover:text-white flex items-center gap-2 text-sm"
                 >
-                  Open in new tab
+                  {inline('Open in new tab')}
                   <ExternalLink className="w-4 h-4" />
                 </a>
                 <button
                   onClick={() => setShowDemo(false)}
                   className="p-2 rounded-md text-slate-200 hover:bg-slate-800/50"
-                  aria-label="Close demo"
+                  aria-label={inline('Close demo')}
                 >
                   <X className="w-4 h-4" />
                 </button>

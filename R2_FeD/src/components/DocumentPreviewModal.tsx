@@ -9,6 +9,7 @@ import { Button } from './ui/button';
 import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import type { Document } from './MainApp';
+import { useTranslation } from '../contexts/TranslationContext';
 
 interface DocumentPreviewModalProps {
   document: Document | null;
@@ -21,6 +22,7 @@ export function DocumentPreviewModal({
   open,
   onOpenChange,
 }: DocumentPreviewModalProps) {
+  const { inline } = useTranslation();
   const [zoom, setZoom] = useState(100);
 
   if (!document) return null;
@@ -92,7 +94,7 @@ export function DocumentPreviewModal({
                           animate={{ opacity: 1 }}
                           transition={{ delay: 0.2 }}
                         >
-                          Uploaded on {document.uploadDate}
+                          {inline('Uploaded on')} {document.uploadDate}
                         </motion.p>
                       </div>
                     </div>
@@ -110,7 +112,7 @@ export function DocumentPreviewModal({
                         onClick={handleZoomOut}
                         disabled={zoom <= 50}
                         className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all hover:scale-110"
-                        title="Zoom Out"
+                        title={inline('Zoom Out')}
                       >
                         <ZoomOut className="w-4 h-4" />
                       </Button>
@@ -131,7 +133,7 @@ export function DocumentPreviewModal({
                         onClick={handleZoomIn}
                         disabled={zoom >= 200}
                         className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all hover:scale-110"
-                        title="Zoom In"
+                        title={inline('Zoom In')}
                       >
                         <ZoomIn className="w-4 h-4" />
                       </Button>
@@ -143,7 +145,7 @@ export function DocumentPreviewModal({
                         size="icon"
                         onClick={handleFullscreen}
                         className="text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white transition-all hover:scale-110 hover:rotate-90"
-                        title="Open in New Tab"
+                        title={inline('Open in New Tab')}
                       >
                         <Maximize2 className="w-4 h-4 transition-transform" />
                       </Button>
@@ -153,7 +155,7 @@ export function DocumentPreviewModal({
                         size="icon"
                         onClick={handleDownload}
                         className="text-gray-600 dark:text-gray-400 hover:text-blue-600 dark:hover:text-blue-400 transition-all hover:scale-110"
-                        title="Download Document"
+                        title={inline('Download Document')}
                       >
                         <Download className="w-4 h-4 transition-transform hover:-translate-y-0.5" />
                       </Button>
@@ -215,9 +217,9 @@ export function DocumentPreviewModal({
                         >
                           <FileText className="w-16 h-16 mx-auto mb-4 opacity-50" />
                         </motion.div>
-                        <p className="text-lg font-medium">Document Preview Unavailable</p>
+                        <p className="text-lg font-medium">{inline('Document Preview Unavailable')}</p>
                         <p className="text-sm mt-2">{document.name}</p>
-                        <p className="text-xs mt-1 text-gray-400">The document file is not available for preview</p>
+                        <p className="text-xs mt-1 text-gray-400">{inline('The document file is not available for preview')}</p>
                       </div>
                       
                       <motion.div 

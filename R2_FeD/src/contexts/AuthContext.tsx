@@ -62,8 +62,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     const initAuth = () => {
       try {
-        const storedToken = sessionStorage.getItem('authToken');
-        const storedUser = sessionStorage.getItem('user');
+        const storedToken = localStorage.getItem('authToken');
+        const storedUser = localStorage.getItem('user');
 
         // Validate token first
         if (storedToken && isTokenValid(storedToken)) {
@@ -76,13 +76,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           }
         } else {
           // Token invalid or expired, clear storage
-          sessionStorage.removeItem('authToken');
-          sessionStorage.removeItem('user');
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
-        sessionStorage.removeItem('authToken');
-        sessionStorage.removeItem('user');
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
       } finally {
         setIsLoading(false);
       }
@@ -115,8 +115,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       // Store token and user
-      sessionStorage.setItem('authToken', token);
-      sessionStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('authToken', token);
+      localStorage.setItem('user', JSON.stringify(userData));
       
       setAuthToken(token);
       setUser(userData);
@@ -131,7 +131,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Update user data
   const updateUser = (userData: User) => {
     try {
-      sessionStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
     } catch (error) {
       console.error('Error updating user:', error);
@@ -142,8 +142,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const logout = () => {
     setUser(null);
     setAuthToken(null);
-    sessionStorage.removeItem('authToken');
-    sessionStorage.removeItem('user');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
     console.log('User logged out');
   };
 

@@ -1,38 +1,32 @@
 // documentsApi.ts — API helper only (removed React bootstrap and App import).
 
+import axiosClient from '../api/axiosClient';
+
 /**
  * Lightweight frontend API helper for document uploads.
  *
- * This is boilerplate for a POST /api/documents endpoint that accepts
- * multipart/form-data with the file under the `file` key and optional
- * metadata such as `type`.
- *
- * The function returns the parsed JSON response from the server and will
- * throw if the request fails. Adjust fields to match your backend contract.
+ * Uses the backend /docUpload/upload endpoint that accepts
+ * multipart/form-data with the file under the `file` key and
+ * metadata such as `title` and `description`.
  */
 export async function uploadDocumentToServer(file: File, documentType: string, token?: string) {
   const form = new FormData();
   form.append('file', file);
-  form.append('type', documentType);
+  form.append('title', documentType); // Backend expects 'title' field
+  form.append('description', documentType);
 
-  const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
+  try {
+    const response = await axiosClient.post('/docUpload/upload', form, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
 
-  const BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
-
-  const res = await fetch(`${BASE}/api/documents`, {
-    method: 'POST',
-    body: form,
-    headers: headers,
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Upload failed: ${res.status} ${res.statusText} ${text}`);
+    return response.data;
+  } catch (error: any) {
+    const errorMsg = error.response?.data?.error || error.message || 'Upload failed';
+    throw new Error(`Upload failed: ${errorMsg}`);
   }
-
-  // Expect server to return the saved document object (id, name, fileUrl, metadata...)
-  return res.json();
 }
 
 export default uploadDocumentToServer;
@@ -42,39 +36,44 @@ export default uploadDocumentToServer;
  * Expects the backend endpoint to accept JSON { chatHistory: Message[] }
  */
 export async function saveChatHistory(documentId: string, chatHistory: any, token?: string) {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
+  try {
+    const response = await axiosClient.post(`/chat/${documentId}`, {
+      chatHistory,
+    });
 
-  const res = await fetch(`${BASE}/api/chats/${documentId}`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ chatHistory }),
-  });
-
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Save chat failed: ${res.status} ${res.statusText} ${text}`);
+    return response.data;
+  } catch (error: any) {
+    const errorMsg = error.response?.data?.error || error.message || 'Save chat failed';
+    throw new Error(`Save chat failed: ${errorMsg}`);
   }
-
-  return res.json();
 }
 
 /**
  * Fetch documents (and their metadata/chatHistory) from the backend.
- * Expects an endpoint GET /api/documents that returns an array of document objects.
+ * Uses the GET /docUpload endpoint that returns an array of document objects.
  */
 export async function fetchDocumentsFromServer(token?: string) {
-  const headers: Record<string, string> = {};
-  if (token) headers['Authorization'] = `Bearer ${token}`;
-  const BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3001';
-
-  const res = await fetch(`${BASE}/api/documents`, { headers });
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(`Fetch documents failed: ${res.status} ${res.statusText} ${text}`);
+  try {
+    const response = await axiosClient.get('/docUpload');
+    
+    // Backend returns array of agreements
+    // Map to frontend Document format
+    if (response.data && Array.isArray(response.data)) {
+      return response.data.map((doc: any) => ({
+        id: doc.id,
+        name: doc.title || doc.name || 'Untitled',
+        description: doc.description || '',
+        uploadDate: doc.createdAt || doc.uploadDate || new Date().toISOString(),
+        status: 'analyzed',
+        fileUrl: doc.fileUrl || '',
+        chatHistory: doc.chatHistory || [],
+      }));
+    }
+    
+    return [];
+  } catch (error: any) {
+    const errorMsg = error.response?.data?.error || error.message || 'Fetch documents failed';
+    throw new Error(`Fetch documents failed: ${errorMsg}`);
   }
-  return res.json();
 }
 
-// Removed stray UI markup that does not belong in this API file.
