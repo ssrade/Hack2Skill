@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Get base URL from environment variable or default to localhost:3001
 const getBaseURL = () => {
-  const envURL = import.meta.env.VITE_API_BASE;
+  const envURL = (import.meta.env.VITE_API_BASE as string);
   if (envURL) {
     return envURL;
   }
@@ -22,7 +22,7 @@ const axiosClient = axios.create({
 // Add token automatically
 axiosClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('authToken');
+    const token = sessionStorage.getItem('authToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
     }
@@ -39,8 +39,8 @@ axiosClient.interceptors.response.use(
       const { status } = error.response;
 
       if (status === 401) {
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('authToken');
+        sessionStorage.removeItem('user');
         window.location.href = '/login';
         return Promise.reject(new Error('Session expired. Please log in again.'));
       }

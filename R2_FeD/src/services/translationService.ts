@@ -14,11 +14,11 @@ class TranslationService {
 
   setLanguage(languageCode: string) {
     this.currentLanguage = languageCode;
-    localStorage.setItem('preferredLanguage', languageCode);
+    sessionStorage.setItem('preferredLanguage', languageCode);
   }
 
   getLanguage(): string {
-    const stored = localStorage.getItem('preferredLanguage');
+    const stored = sessionStorage.getItem('preferredLanguage');
     return stored || this.currentLanguage;
   }
 

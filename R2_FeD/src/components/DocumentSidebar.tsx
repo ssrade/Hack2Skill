@@ -1,6 +1,5 @@
 import {
   FileText,
-  Clock,
   Trash2,
   Eye,
   Upload,
@@ -26,6 +25,19 @@ interface DocumentSidebarProps {
   onDeleteAllDocuments: () => void;
   onDocumentsUpdate: () => void; // Add this prop to refresh documents list after deletion
 }
+
+// Helper function to format upload date
+const formatUploadDate = (dateString: string) => {
+    try {
+      return new Date(dateString).toLocaleDateString('en-US', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+      });
+    } catch {
+      return dateString;
+    }
+  };
 
 export function DocumentSidebar({
   documents,
@@ -73,11 +85,20 @@ export function DocumentSidebar({
     );
     
     try {
-      // Call the actual API
-      await deleteDocument(docToDelete);
+         await deleteDocument(docToDelete);
+      
+      console.log('✅ Delete successful, refreshing document list...');
+      
+      // Small delay before refresh to let backend propagate
+      await new Promise(resolve => setTimeout(resolve, 300));
       
       // Refresh documents list
-      onDocumentsUpdate();
+      try {
+        await onDocumentsUpdate();
+      } catch (refreshError) {
+        console.warn('⚠️ Document list refresh failed after delete, but delete was successful:', refreshError);
+        // Don't throw - the delete itself succeeded
+      }
       
     } catch (error: any) {
       console.error('Failed to delete document:', error);
@@ -178,10 +199,17 @@ export function DocumentSidebar({
             </div>
           ) : (
             documents.map((doc) => (
-              <button
+              <div
                 key={doc.id}
-                onClick={() => onSelectDocument(doc.id)}
-                disabled={isDeleting}
+                onClick={() => !isDeleting && onSelectDocument(doc.id)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if ((e.key === 'Enter' || e.key === ' ') && !isDeleting) {
+                    e.preventDefault();
+                    onSelectDocument(doc.id);
+                  }
+                }}
                 aria-label={`Select document ${doc.name}`}
                 aria-pressed={selectedDocId === doc.id}
                 aria-describedby={`doc-status-${doc.id}`}
@@ -189,7 +217,7 @@ export function DocumentSidebar({
                   selectedDocId === doc.id
                     ? 'bg-blue-100 dark:bg-transparent dark:bg-gradient-to-r dark:from-blue-600/20 dark:to-purple-600/20 border border-blue-200 dark:border-blue-500/30'
                     : 'bg-transparent dark:bg-[#0f1629]/50 hover:bg-gray-100 dark:hover:bg-[#0f1629] border border-transparent'
-                } ${isDeleting ? 'opacity-50 cursor-not-allowed' : ''}`}
+                } ${isDeleting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
               >
                 <div className="flex items-start gap-3">
                   {/* ... existing document content ... */}
@@ -213,9 +241,8 @@ export function DocumentSidebar({
                       {doc.name}
                     </h3>
                     <div className="flex items-center gap-1 mt-1">
-                      <Clock className="w-3 h-3 text-gray-500" />
                       <span className="text-gray-500 dark:text-gray-400 text-xs">
-                        {doc.uploadDate}
+                        {formatUploadDate(doc.uploadDate)}
                       </span>
                     </div>
                     <div className="mt-2">
@@ -272,7 +299,7 @@ export function DocumentSidebar({
                 >
                   <Eye className="w-4 h-4" />
                 </button>
-              </button>
+              </div>
             ))
           )}
         </div>

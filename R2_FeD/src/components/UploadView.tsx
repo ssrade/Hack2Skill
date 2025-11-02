@@ -38,6 +38,7 @@ interface GoogleTokenResponse {
 declare global {
   interface Window {
     google: any;
+    gapi: any;
   }
 }
 
@@ -103,32 +104,131 @@ export function UploadView({ onUpload, documents, onSelect }: UploadViewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const [isGsiLoaded, setIsGsiLoaded] = useState(false);
+  const [isPickerApiLoaded, setIsPickerApiLoaded] = useState(false);
   const [oauthToken, setOauthToken] = useState<GoogleTokenResponse | null>(null);
   const tokenClient = useRef<any>(null);
+  const pendingPickerToken = useRef<string | null>(null);
 
-  // Load only Google Identity Services (OAuth)
+  // Create and show Google Picker
+  const createPicker = useCallback((accessToken: string) => {
+    if (!window.gapi || !window.google || !window.google.picker) {
+      console.error('Google Picker API not loaded');
+      toast.error('Google Drive picker is not available. Please try again.', 5000);
+      return;
+    }
+
+    console.log('Creating picker with token:', accessToken.substring(0, 10) + '...');
+
+    const picker = new window.google.picker.PickerBuilder()
+      .addView(window.google.picker.ViewId.DOCS)
+      .setOAuthToken(accessToken)
+      .setDeveloperKey(import.meta.env.VITE_GOOGLE_API_KEY || '') // Optional: Add API key if you have one
+      .setCallback(async (data: any) => {
+        if (data.action === window.google.picker.Action.PICKED) {
+          const file = data.docs[0];
+          console.log('Selected file:', file);
+          
+          // Download the file from Google Drive
+          try {
+            await downloadFileFromDrive(file.id, file.name, accessToken);
+          } catch (error) {
+            console.error('Failed to download from Drive:', error);
+            toast.error('Failed to download file from Google Drive', 5000);
+          }
+        }
+      })
+      .build();
+    
+    picker.setVisible(true);
+  }, []);
+
+  // Download file from Google Drive
+  const downloadFileFromDrive = async (fileId: string, fileName: string, accessToken: string) => {
+    try {
+      toast.info('Downloading file from Google Drive...', 3000);
+      
+      const response = await fetch(
+        `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`,
+        {
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to download file from Google Drive');
+      }
+
+      const blob = await response.blob();
+      const file = new File([blob], fileName, { type: blob.type });
+      
+      // Set the selected file
+      handleFileSelect(file);
+      toast.success(`File "${fileName}" loaded from Google Drive`, 3000);
+    } catch (error) {
+      console.error('Error downloading from Drive:', error);
+      throw error;
+    }
+  };
+
+  // Load Google Identity Services (OAuth) AND Picker API
   useEffect(() => {
+    console.log('Loading Google APIs...');
+    
+    // Load Google Identity Services for OAuth
     const gsiScript = document.createElement('script');
     gsiScript.src = 'https://accounts.google.com/gsi/client';
     gsiScript.async = true;
     gsiScript.defer = true;
     gsiScript.onload = () => {
+      console.log('Google Identity Services loaded');
       tokenClient.current = window.google.accounts.oauth2.initTokenClient({
         client_id: GOOGLE_CLIENT_ID,
         scope: 'https://www.googleapis.com/auth/drive.readonly',
         callback: async (tokenResponse: GoogleTokenResponse) => {
+          console.log('OAuth token received');
           setOauthToken(tokenResponse);
-          await handleDriveFileSelect(tokenResponse.access_token);
+          pendingPickerToken.current = tokenResponse.access_token;
         },
       });
       setIsGsiLoaded(true);
     };
     document.body.appendChild(gsiScript);
 
+    // Load Google Picker API
+    const pickerScript = document.createElement('script');
+    pickerScript.src = 'https://apis.google.com/js/api.js';
+    pickerScript.async = true;
+    pickerScript.defer = true;
+    pickerScript.onload = () => {
+      console.log('Google API script loaded, loading picker...');
+      window.gapi.load('picker', () => {
+        console.log('Google Picker API loaded');
+        setIsPickerApiLoaded(true);
+      });
+    };
+    document.body.appendChild(pickerScript);
+
     return () => {
-      document.body.removeChild(gsiScript);
+      if (document.body.contains(gsiScript)) {
+        document.body.removeChild(gsiScript);
+      }
+      if (document.body.contains(pickerScript)) {
+        document.body.removeChild(pickerScript);
+      }
     };
   }, []);
+
+  // When both APIs are loaded and we have a pending token, show picker
+  useEffect(() => {
+    console.log('useEffect triggered:', { isPickerApiLoaded, hasPendingToken: !!pendingPickerToken.current, oauthToken: !!oauthToken });
+    if (isPickerApiLoaded && pendingPickerToken.current) {
+      console.log('Both APIs loaded, showing picker with token:', pendingPickerToken.current.substring(0, 10) + '...');
+      createPicker(pendingPickerToken.current);
+      pendingPickerToken.current = null;
+    }
+  }, [isPickerApiLoaded, oauthToken, createPicker]);
 
   // Simulate analysis steps progression with varying durations
   useEffect(() => {
@@ -163,14 +263,27 @@ export function UploadView({ onUpload, documents, onSelect }: UploadViewProps) {
     };
   }, [uploadStage, translatedAnalysisSteps.length]);
 
-  // Handle Drive file selection via native file picker
-  const handleDriveFileSelect = async (accessToken: string) => {
-    try {
-      const pickerUrl = 'https://drive.google.com/drive/my-drive';
-      window.open(pickerUrl, '_blank');
-    } catch (err) {
-      console.error('Error accessing Drive:', err);
+  // Handle Drive file selection - trigger OAuth flow
+  const handleDriveFileSelect = () => {
+    console.log('handleDriveFileSelect called', { isGsiLoaded, isPickerApiLoaded });
+    
+    if (!isGsiLoaded) {
+      toast.error('Google authentication is still loading. Please wait a moment.', 5000);
+      return;
     }
+    
+    if (!isPickerApiLoaded) {
+      toast.error('Google Drive picker is still loading. Please wait a moment.', 5000);
+      return;
+    }
+    
+    if (!tokenClient.current) {
+      toast.error('Google authentication client not initialized.', 5000);
+      return;
+    }
+    
+    console.log('Requesting access token...');
+    tokenClient.current.requestAccessToken();
   };
 
   const handleFileSelect = (file: File | null | undefined) => {
@@ -216,7 +329,7 @@ export function UploadView({ onUpload, documents, onSelect }: UploadViewProps) {
 
     try {
       console.log('🚀 Starting document upload process...');
-      const storedUser = localStorage.getItem('user');
+      const storedUser = sessionStorage.getItem('user');
       const userId = storedUser ? JSON.parse(storedUser).id : null;
       console.log('🪪 User ID:', userId);
 
@@ -349,10 +462,14 @@ const handleAnalyze = async () => {
   // Trigger OAuth flow for Drive
   const handleDriveUpload = () => {
     if (!isGsiLoaded) {
-      console.error('Google OAuth not yet loaded.');
+      toast.error('Google authentication is loading. Please wait a moment and try again.', 5000);
       return;
     }
-    tokenClient.current.requestAccessToken();
+    if (!isPickerApiLoaded) {
+      toast.error('Google Drive picker is loading. Please wait a moment and try again.', 5000);
+      return;
+    }
+    handleDriveFileSelect();
   };
 
   return (

@@ -13,18 +13,18 @@ export interface DeleteDocumentResponse {
  */
 export const deleteDocument = async (agreementId: string): Promise<DeleteDocumentResponse> => {
   try {
-    const response = await axiosClient.delete('/docUpload/delete', {
-      data: { agreementId },
-    });
+    const response = await axiosClient.delete(`/docUpload/delete?agreementId=${encodeURIComponent(agreementId)}`);
 
-    if (response.data && response.data.success) {
+    // Backend returns { success: true, message: "..." }
+    if (response.data && response.data.success !== false) {
       console.log('✅ Document deleted successfully:', agreementId);
       return {
         success: true,
         message: response.data.message || 'Document deleted successfully',
       };
     } else {
-      throw new Error('Unexpected response from server');
+      // If success is explicitly false, treat as error
+      throw new Error(response.data?.message || 'Unexpected response from server');
     }
   } catch (error: any) {
     console.error('❌ Error deleting document:', error);

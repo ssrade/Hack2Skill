@@ -6,6 +6,7 @@ interface User {
   email: string;
   name: string;
   profilePhoto?: string;
+  picture?: string;
 }
 
 interface AuthContextType {
@@ -62,8 +63,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   useEffect(() => {
     const initAuth = () => {
       try {
-        const storedToken = localStorage.getItem('authToken');
-        const storedUser = localStorage.getItem('user');
+        const storedToken = sessionStorage.getItem('authToken');
+        const storedUser = sessionStorage.getItem('user');
 
         // Validate token first
         if (storedToken && isTokenValid(storedToken)) {
@@ -76,13 +77,13 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
           }
         } else {
           // Token invalid or expired, clear storage
-          localStorage.removeItem('authToken');
-          localStorage.removeItem('user');
+          sessionStorage.removeItem('authToken');
+          sessionStorage.removeItem('user');
         }
       } catch (error) {
         console.error('Error initializing auth:', error);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
+        sessionStorage.removeItem('authToken');
+        sessionStorage.removeItem('user');
       } finally {
         setIsLoading(false);
       }
@@ -115,8 +116,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
       }
 
       // Store token and user
-      localStorage.setItem('authToken', token);
-      localStorage.setItem('user', JSON.stringify(userData));
+      sessionStorage.setItem('authToken', token);
+      sessionStorage.setItem('user', JSON.stringify(userData));
       
       setAuthToken(token);
       setUser(userData);
@@ -131,7 +132,7 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   // Update user data
   const updateUser = (userData: User) => {
     try {
-      localStorage.setItem('user', JSON.stringify(userData));
+      sessionStorage.setItem('user', JSON.stringify(userData));
       setUser(userData);
     } catch (error) {
       console.error('Error updating user:', error);
@@ -142,8 +143,8 @@ export const AuthProvider = ({ children }: AuthProviderProps) => {
   const logout = () => {
     setUser(null);
     setAuthToken(null);
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('user');
     console.log('User logged out');
   };
 

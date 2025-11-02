@@ -449,7 +449,7 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                 exit="exit"
                 className="flex flex-col md:flex-row w-full h-auto"
               >
-                <div className="h-auto md:h-[88vh] w-full md:w-[70%] md:pr-4 pt-1 overflow-y-auto">
+                <div className="h-auto md:h-[88vh] w-full md:w-[70%] md:pr-4 pt-1 overflow-y-auto scrollbar-hide">
                   <motion.div variants={containerVariants} initial="hidden" animate="visible" className="md:pr-3 pt-1">
                     {/* Upload Date */}
                     <motion.p variants={itemVariants} className="text-gray-600 dark:text-gray-400 mb-6">
@@ -613,7 +613,7 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                 exit="exit"
                 className="flex flex-col md:flex-row w-full h-auto"
               >
-                <div className="flex-1 h-auto md:h-[87vh] w-full pt-2 md:pr-5 overflow-y-auto">
+                <div className="flex-1 h-auto md:h-[87vh] w-full pt-2 md:pr-5 overflow-y-auto scrollbar-hide">
                   <motion.div className="max-w-full" variants={containerVariants} initial="hidden" animate="visible">
                     <motion.h2 variants={itemVariants} className="text-black dark:text-white text-2xl mb-4">
                       {inline('Risk Analysis')}
@@ -694,7 +694,7 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                 exit="exit"
                 className="flex flex-col md:flex-row w-full h-auto"
               >
-                <div className="flex-1 h-auto md:h-[87vh] w-full pt-2 md:pr-5 overflow-y-auto">
+                <div className="flex-1 h-auto md:h-[87vh] w-full pt-2 md:pr-5 overflow-y-auto scrollbar-hide">
                   <motion.div className="max-w-full" variants={containerVariants} initial="hidden" animate="visible">
                     <motion.h2 variants={itemVariants} className="text-black dark:text-white text-2xl mb-4">
                       {inline('Document Clauses')} ({displayAnalysis.clausesJson?.total_clauses || 0})
@@ -761,7 +761,7 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                 exit="exit"
                 className="flex flex-col md:flex-row w-full h-auto"
               >
-                <div className="flex-1 h-auto md:h-[87vh] w-full pt-2 md:pr-5 overflow-y-auto">
+                <div className="flex-1 h-auto md:h-[87vh] w-full pt-2 md:pr-5 overflow-y-auto scrollbar-hide">
                   <motion.div className="max-w-full" variants={containerVariants} initial="hidden" animate="visible">
                     <motion.h2 variants={itemVariants} className="text-black dark:text-white text-2xl mb-4">
                       {inline('Legal Rulebook')}
@@ -942,7 +942,7 @@ function DocumentView({ document, onSendMessage, onToggleMobileSidebar }: Docume
                 exit="exit"
                 className="flex flex-col md:flex-row w-full h-auto"
               >
-                <div className="flex-1 h-auto md:h-[87vh] w-full pt-2 md:pr-5 overflow-y-auto">
+                <div className="flex-1 h-auto md:h-[87vh] w-full pt-2 md:pr-5 overflow-y-auto scrollbar-hide">
                   <motion.div className="max-w-full" variants={containerVariants} initial="hidden" animate="visible">
                     <motion.h2 variants={itemVariants} className="text-black dark:text-white text-2xl mb-4">
                       {inline('Chat with the document')}

@@ -27,6 +27,9 @@ export function DocumentPreviewModal({
 
   if (!document) return null;
 
+  // Show loading state if document exists but no fileUrl yet
+  const isLoading = !document.fileUrl;
+
   // Use the document's fileUrl if available, otherwise show a placeholder
   // In production, you would store the fileUrl when uploading the document
   const documentUrl = document.fileUrl || `https://example.com/documents/${document.id}.pdf`;
@@ -187,7 +190,24 @@ export function DocumentPreviewModal({
                   }}
                 >
                   {/* PDF Preview - Using iframe */}
-                  {document.fileUrl ? (
+                  {isLoading ? (
+                    /* Loading state while fetching preview URL */
+                    <motion.div 
+                      className="p-8 space-y-6 min-h-[800px] flex flex-col items-center justify-center"
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{ delay: 0.2 }}
+                    >
+                      <div className="text-center text-gray-500 dark:text-gray-400">
+                        <div className="w-16 h-16 mx-auto mb-4">
+                          <div className="w-16 h-16 border-4 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                        </div>
+                        <p className="text-lg font-medium">{inline('Loading Preview...')}</p>
+                        <p className="text-sm mt-2">{document.name}</p>
+                        <p className="text-xs mt-1 text-gray-400">{inline('Please wait while we fetch the document')}</p>
+                      </div>
+                    </motion.div>
+                  ) : document.fileUrl ? (
                     <motion.iframe
                       src={document.fileUrl}
                       className="w-full h-full min-h-[800px] border-0"
@@ -237,7 +257,7 @@ export function DocumentPreviewModal({
                             transition={{ delay: 0.7 }}
                           >
                             <dt className="text-gray-600 dark:text-gray-400">Risk Score:</dt>
-                            <dd className="font-medium text-gray-900 dark:text-white">{document.evals.riskScore}</dd>
+                            <dd className="font-medium text-gray-900 dark:text-white">{document.evals?.riskScore || 'N/A'}</dd>
                           </motion.div>
                           <motion.div 
                             className="flex justify-between"
@@ -246,7 +266,7 @@ export function DocumentPreviewModal({
                             transition={{ delay: 0.8 }}
                           >
                             <dt className="text-gray-600 dark:text-gray-400">Complexity:</dt>
-                            <dd className="font-medium text-gray-900 dark:text-white">{document.evals.complexity}</dd>
+                            <dd className="font-medium text-gray-900 dark:text-white">{document.evals?.complexity || 'N/A'}</dd>
                           </motion.div>
                           <motion.div 
                             className="flex justify-between"
@@ -255,7 +275,7 @@ export function DocumentPreviewModal({
                             transition={{ delay: 0.9 }}
                           >
                             <dt className="text-gray-600 dark:text-gray-400">Clauses:</dt>
-                            <dd className="font-medium text-gray-900 dark:text-white">{document.evals.clauses}</dd>
+                            <dd className="font-medium text-gray-900 dark:text-white">{document.evals?.clauses || 0}</dd>
                           </motion.div>
                         </dl>
                       </motion.div>
@@ -279,7 +299,7 @@ export function DocumentPreviewModal({
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.4 }}
                     >
-                      <span className="font-medium">Risk Score:</span> {document.evals.riskScore}
+                      <span className="font-medium">Risk Score:</span> {document.evals?.riskScore || 'N/A'}
                     </motion.span>
                     <span className="text-gray-300 dark:text-gray-700">•</span>
                     <motion.span
@@ -287,7 +307,7 @@ export function DocumentPreviewModal({
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.5 }}
                     >
-                      <span className="font-medium">Complexity:</span> {document.evals.complexity}
+                      <span className="font-medium">Complexity:</span> {document.evals?.complexity || 'N/A'}
                     </motion.span>
                     <span className="text-gray-300 dark:text-gray-700">•</span>
                     <motion.span
@@ -295,7 +315,7 @@ export function DocumentPreviewModal({
                       animate={{ opacity: 1 }}
                       transition={{ delay: 0.6 }}
                     >
-                      <span className="font-medium">Clauses:</span> {document.evals.clauses}
+                      <span className="font-medium">Clauses:</span> {document.evals?.clauses || 0}
                     </motion.span>
                   </div>
                   

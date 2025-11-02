@@ -9,10 +9,12 @@ import { Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import { AppPage } from './pages/AppPage'; 
 import { useDocuments } from './hooks/useDocuments';
 import { useAuth } from './contexts/AuthContext';
-import { Toaster } from './components/ui/toast';
+import { Toaster, toast } from './components/ui/toast';
 import { OfflineBanner } from './components/OfflineBanner';
 import { SessionTimeoutBanner } from './components/SessionTimeoutBanner';
 import { DocumentSkeleton } from './components/DocumentSkeleton';
+import { getDocumentPreview } from './api/previewApi';
+import { getUserFriendlyError } from './utils/errorHandler';
 
 type Theme = 'light' | 'dark';
 
@@ -41,6 +43,7 @@ export default function App() {
   // --- Theme and Preview Modal state ---
   const [theme, setTheme] = useState<Theme>('dark');
   const [previewDocId, setPreviewDocId] = useState<string | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [previewModalOpen, setPreviewModalOpen] = useState(false);
 
   // --- Document Logic ---
@@ -77,9 +80,9 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    // Clear localStorage tokens (used by axios interceptor)
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
+    // Clear sessionStorage tokens (used by axios interceptor)
+    sessionStorage.removeItem('authToken');
+    sessionStorage.removeItem('user');
     
     // Call logout from AuthContext
     authLogout();
@@ -92,13 +95,51 @@ export default function App() {
   const handleGoToProfile = () => navigate('/profile');
   const handleGoToAdmin = () => navigate('/admin');
 
-  const handlePreviewDocument = (id: string) => {
-    setPreviewDocId(id);
-    setPreviewModalOpen(true);
+  const handlePreviewDocument = async (id: string) => {
+    try {
+      console.log('📄 Preview requested for document:', id);
+      
+      // Reset previous preview URL
+      setPreviewUrl(null);
+      
+      // Set the preview doc first
+      setPreviewDocId(id);
+      
+      // Open modal immediately (will show loading state)
+      setPreviewModalOpen(true);
+      
+      // Show loading toast
+      const loadingToastId = toast.info('Loading preview...', 10000);
+      
+      // Fetch the preview URL from the backend
+      const url = await getDocumentPreview(id);
+      
+      console.log('✅ Preview URL fetched:', url);
+      
+      // Dismiss loading toast
+      toast.dismiss(loadingToastId);
+      
+      // Set the preview URL
+      setPreviewUrl(url);
+    } catch (error: any) {
+      console.error('❌ Failed to load preview:', error);
+      const errorMessage = getUserFriendlyError(error);
+      toast.error(errorMessage || 'Failed to load document preview. Please try again.', 5000);
+      // Close modal on error
+      setPreviewModalOpen(false);
+      setPreviewDocId(null);
+      setPreviewUrl(null);
+    }
   };
 
-  // --- Find preview document ---
-  const previewDocument = documents.find(doc => doc.id === previewDocId);
+  // --- Find preview document and add preview URL ---
+  const previewDocument = previewDocId 
+    ? (() => {
+        const doc = documents.find(d => d.id === previewDocId);
+        if (!doc) return null;
+        return { ...doc, fileUrl: previewUrl || doc.fileUrl };
+      })()
+    : null;
 
   // Loading spinner for auth check
   if (isLoading) {
@@ -131,7 +172,7 @@ export default function App() {
       <SessionTimeoutBanner />
       
       <DocumentPreviewModal
-        document={previewDocument || null}
+        document={previewDocument}
         open={previewModalOpen}
         onOpenChange={setPreviewModalOpen}
       />

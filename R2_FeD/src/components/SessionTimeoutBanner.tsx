@@ -52,9 +52,10 @@ export function SessionTimeoutBanner() {
             logout();
             // Show toast after logout
             if (typeof window !== 'undefined') {
-              const { toast } = require('./ui/toast');
-              t('Session expired. Please log in again.').then((msg: string) => {
-                toast.error(msg);
+              import('./ui/toast').then(({ toast }) => {
+                t('Session expired. Please log in again.').then((msg: string) => {
+                  toast.error(msg);
+                });
               });
             }
           }, 1000);
@@ -71,7 +72,7 @@ export function SessionTimeoutBanner() {
     const interval = setInterval(checkTokenExpiry, 10000);
 
     // Update countdown every second when warning is shown
-    let countdownInterval: NodeJS.Timeout | null = null;
+    let countdownInterval: ReturnType<typeof setInterval> | null = null;
     if (showWarning) {
       countdownInterval = setInterval(() => {
         try {

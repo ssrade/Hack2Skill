@@ -5,6 +5,12 @@ import { useTranslation } from "../../contexts/TranslationContext";
 
 export const LegalDisclaimer = () => {
   const { inline } = useTranslation();
+  
+  const handleContactClick = (e: React.MouseEvent<HTMLAnchorElement>) => {
+    e.preventDefault();
+    window.location.href = "mailto:team.lawbuddy.ai@gmail.com?subject=Legal Inquiry&body=Hello LawBuddy AI Legal Team,%0D%0A%0D%0A";
+  };
+  
   return (
     <motion.div
       className="space-y-6 mt-10"
@@ -54,9 +60,9 @@ export const LegalDisclaimer = () => {
         transition={{ delay: 0.2, duration: 0.4 }}
       >
         {[
-          { label: inline("Privacy Policy"), href: "/privacy", icon: <Shield className="w-3 h-3" /> },
-          { label: inline("Terms of Service"), href: "/terms", icon: <FileText className="w-3 h-3" /> },
-          { label: inline("Contact Legal Team"), href: "/contact-legal", icon: <Mail className="w-3 h-3" /> },
+          { label: inline("Privacy Policy"), href: "/privacy", icon: <Shield className="w-3 h-3" />, isExternal: false, isMail: false },
+          { label: inline("Terms of Service"), href: "/terms", icon: <FileText className="w-3 h-3" />, isExternal: false, isMail: false },
+          { label: inline("Contact Legal Team"), href: "#", icon: <Mail className="w-3 h-3" />, isExternal: false, isMail: true },
         ].map((link, index) => (
           <motion.div
             key={link.label}
@@ -70,12 +76,18 @@ export const LegalDisclaimer = () => {
               className="h-auto p-0 text-xs hover:underline flex items-center gap-1 text-slate-400 hover:text-slate-200 transition-colors duration-200 group"
               asChild
             >
-              <a href={link.href} target="_blank" rel="noopener noreferrer">
+              <a 
+                href={link.href} 
+                {...(!link.isMail ? { target: "_blank", rel: "noopener noreferrer" } : {})}
+                {...(link.isMail ? { onClick: handleContactClick } : {})}
+              >
                 <span className="text-indigo-400 group-hover:text-indigo-300 transition-colors duration-200">
                   {link.icon}
                 </span>
                 {link.label}
-                <ExternalLink className="w-3 h-3 ml-1 text-slate-500 group-hover:text-slate-300 transition-colors duration-200" />
+                {!link.isMail && (
+                  <ExternalLink className="w-3 h-3 ml-1 text-slate-500 group-hover:text-slate-300 transition-colors duration-200" />
+                )}
               </a>
             </Button>
           </motion.div>

@@ -19,9 +19,7 @@ export const uploadDocument = async (
     formData.append('file', file);
 
     const response = await axiosClient.post('/docUpload/upload', formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data',
-      },
+      headers: { 'Content-Type': 'multipart/form-data' },
       onUploadProgress: (progressEvent) => {
         if (onProgress && progressEvent.total) {
           const percentage = Math.round((progressEvent.loaded * 100) / progressEvent.total);
@@ -38,7 +36,12 @@ export const uploadDocument = async (
     console.log('📄 Document ID:', response.data.data.id);
     return response.data.data;
   } catch (error: any) {
-    console.error('❌ Error uploading document:', error.message);
+    // Log server response body when available to help debug 4xx/5xx errors
+    if (error.response && error.response.data) {
+      console.error('❌ Upload error response data:', error.response.data);
+    } else {
+      console.error('❌ Error uploading document:', error.message);
+    }
     throw error;
   }
 };

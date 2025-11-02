@@ -21,14 +21,14 @@ export async function processAgreement({
     formData.append('docType', docType);
     formData.append('user_type', userType);
 
-    // Get the user ID from localStorage
-    const user = localStorage.getItem('user');
+    // Get the user ID from sessionStorage
+    const user = sessionStorage.getItem('user');
     if (user) {
       const parsedUser = JSON.parse(user);
       formData.append('userId', parsedUser.id);
       console.log('👤 User ID:', parsedUser.id);
     } else {
-      console.warn('⚠️ No user found in localStorage');
+      console.warn('⚠️ No user found in sessionStorage');
     }
 
     console.log('📤 Sending agreement process request...');

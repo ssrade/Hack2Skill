@@ -6,7 +6,7 @@ import { Scale, Sparkles, Loader2, Eye, EyeOff } from 'lucide-react';
 import { Badge } from '../components/ui/badge';
 import { motion } from 'framer-motion';
 import { cn } from '../components/lib/utils';
-import { GoogleLogin } from '@react-oauth/google';
+import { GoogleLogin, useGoogleLogin } from '@react-oauth/google';
 import type { CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
 import { useNavigate } from 'react-router-dom';
@@ -40,9 +40,9 @@ export function LoginPage({ onLogin, onSwitchToSignup }: LoginPageProps) {
       // Response: { token: string, user: { id, email, name, profilePhoto? } }
       const { token, user } = response;
 
-      // Store token in localStorage (used by axios interceptor)
-      localStorage.setItem('authToken', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      // Store token in sessionStorage (used by axios interceptor)
+      sessionStorage.setItem('authToken', token);
+      sessionStorage.setItem('user', JSON.stringify(user));
 
       // Update auth context
       authLogin(token, user);
@@ -82,13 +82,13 @@ export function LoginPage({ onLogin, onSwitchToSignup }: LoginPageProps) {
       
       const { token, user } = backendResponse;
 
-      console.log('💾 Storing in localStorage...');
+      console.log('💾 Storing in sessionStorage...');
       console.log('👤 User Data:', user);
       console.log('🎫 JWT Token (first 50 chars):', token.substring(0, 50));
 
-      // Store in localStorage (used by axios interceptor)
-      localStorage.setItem('authToken', token);
-      localStorage.setItem('user', JSON.stringify(user));
+      // Store in sessionStorage (used by axios interceptor)
+      sessionStorage.setItem('authToken', token);
+      sessionStorage.setItem('user', JSON.stringify(user));
 
       console.log('🔄 Calling authLogin...');
       authLogin(token, user);
@@ -248,15 +248,31 @@ export function LoginPage({ onLogin, onSwitchToSignup }: LoginPageProps) {
           </div>
 
           {/* --- Google Sign-In Button --- */}
-          <div className="w-full flex items-center justify-center">
-            <GoogleLogin
-              onSuccess={handleGoogleLogin}
-              onError={handleGoogleLoginError}
-              theme="outline"
-              size="large"
-              text="signin_with"
-              width="384"
-            />
+          <div className="w-full relative">
+            {/* Styled Button Overlay */}
+            <div className="w-full bg-white dark:bg-transparent border border-gray-300 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg h-11 transition-all duration-300 flex items-center justify-center pointer-events-none absolute inset-0 z-0">
+              <svg className="w-4 h-4 mr-2" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8c-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C12.955 4 4 12.955 4 24s8.955 20 20 20s20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z" />
+                <path fill="#FF3D00" d="m6.306 14.691l6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4C16.318 4 9.656 8.337 6.306 14.691z" />
+                <path fill="#4CAF50" d="m24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238C29.211 35.091 26.715 36 24 36c-5.202 0-9.619-3.108-11.283-7.404l-6.571 4.819C9.656 39.663 16.318 44 24 44z" />
+                <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303c-.792 2.237-2.231 4.166-4.087 5.571l6.19 5.238C39.756 34.631 44 27.925 44 20c0-1.341-.138-2.65-.389-3.917z" />
+              </svg>
+              <span className="text-gray-700 dark:text-gray-300 text-sm font-medium">{inline('Sign In with Google')}</span>
+            </div>
+            {/* Actual Google Button (hidden but functional) */}
+            <div className="relative z-10 opacity-0 hover:opacity-0">
+              <GoogleLogin
+                onSuccess={handleGoogleLogin}
+                onError={handleGoogleLoginError}
+                useOneTap
+                theme="filled_black"
+                size="large"
+                text="signin_with"
+                shape="rectangular"
+                logo_alignment="left"
+                width="384"
+              />
+            </div>
           </div>
 
           <div className="mt-6 text-center">
@@ -276,3 +292,4 @@ export function LoginPage({ onLogin, onSwitchToSignup }: LoginPageProps) {
     </div>
   );
 }
+

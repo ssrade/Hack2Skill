@@ -9,6 +9,7 @@ import { Menu, CheckCircle2, X } from 'lucide-react';
 import { MainApp, type Document, type DocumentType } from '../components/MainApp';
 import { UploadView } from '../components/UploadView';
 import { UserNav } from '../components/UserNav';
+import { DocumentPreviewModal } from '../components/DocumentPreviewModal';
 
 import { getAllDocuments } from '../api/agreementApi';
 
@@ -51,6 +52,10 @@ export function AppPage({
   const [loading, setLoading] = useState(true);
   const [previousDocumentId, setPreviousDocumentId] = useState<string | null>(null);
   const [deleteSuccessMessage, setDeleteSuccessMessage] = useState<string | null>(null);
+  
+  // Preview modal state
+  const [previewDocumentId, setPreviewDocumentId] = useState<string | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   
   // Fetch documents on mount
   useEffect(() => {
@@ -159,6 +164,17 @@ export function AppPage({
       console.error('Failed to refresh documents:', err);
     }
   };
+
+  // Handler for preview document
+  const handlePreviewDocument = (id: string) => {
+    setPreviewDocumentId(id);
+    setIsPreviewOpen(true);
+  };
+
+  // Get the document for preview
+  const previewDocument = previewDocumentId 
+    ? documents.find(doc => doc.id === previewDocumentId) || null
+    : null;
 
   // --- Loading & Empty States ---
   if (loading) {
@@ -293,7 +309,7 @@ export function AppPage({
                 onLogout={onLogout}
                 onGoToProfile={onGoToProfile}
                 onGoToAdmin={onGoToAdmin}
-                onPreviewDocument={onPreviewDocument}
+                onPreviewDocument={handlePreviewDocument}
                 onDownloadDocument={handleDownloadDocument}
                 onSendMessage={handleSendMessage}
 
@@ -318,6 +334,13 @@ export function AppPage({
           )}
         </AnimatePresence>
       </div>
+
+      {/* Document Preview Modal */}
+      <DocumentPreviewModal
+        document={previewDocument}
+        open={isPreviewOpen}
+        onOpenChange={setIsPreviewOpen}
+      />
     </>
   );
 }
