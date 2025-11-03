@@ -1,9 +1,13 @@
 import { Router } from "express";
 import multer from "multer";
+import express from "express";
 import { uploadDocument, getUserDocuments, previewDoc, deleteAgreementController } from "./doc.controller";
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
+
+// Ensure JSON body parsing for all routes (redundant safety measure)
+router.use(express.json());
 
 /**
  * @swagger

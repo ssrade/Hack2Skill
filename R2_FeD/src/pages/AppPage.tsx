@@ -12,6 +12,7 @@ import { UserNav } from '../components/UserNav';
 import { DocumentPreviewModal } from '../components/DocumentPreviewModal';
 
 import { getAllDocuments } from '../api/agreementApi';
+import { getDocumentPreview } from '../api/previewApi';
 
 
 // Animation transition settings
@@ -165,10 +166,29 @@ export function AppPage({
     }
   };
 
-  // Handler for preview document
-  const handlePreviewDocument = (id: string) => {
-    setPreviewDocumentId(id);
-    setIsPreviewOpen(true);
+  // Handler for preview document - fetches preview URL from backend
+  const handlePreviewDocument = async (id: string) => {
+    try {
+      console.log('🔍 Preview requested for document:', id);
+      setPreviewDocumentId(id);
+      setIsPreviewOpen(true);
+      
+      // Fetch the preview URL from backend
+      const previewUrl = await getDocumentPreview(id);
+      console.log('✅ Preview URL fetched:', previewUrl);
+      
+      // Update the document in the list with the preview URL
+      setDocuments(prevDocs => 
+        prevDocs.map(doc => 
+          doc.id === id 
+            ? { ...doc, fileUrl: previewUrl }
+            : doc
+        )
+      );
+    } catch (error) {
+      console.error('❌ Failed to fetch preview URL:', error);
+      // Still open the modal, it will show an error state
+    }
   };
 
   // Get the document for preview

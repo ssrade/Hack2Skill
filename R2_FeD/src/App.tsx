@@ -15,6 +15,9 @@ import { SessionTimeoutBanner } from './components/SessionTimeoutBanner';
 import { DocumentSkeleton } from './components/DocumentSkeleton';
 import { getDocumentPreview } from './api/previewApi';
 import { getUserFriendlyError } from './utils/errorHandler';
+import { Analytics } from '@vercel/analytics/react';
+import { PrivacyPolicy } from './pages/PrivacyPolicy';
+import { TermsOfService } from './pages/TermsOfService';
 
 type Theme = 'light' | 'dark';
 
@@ -210,6 +213,9 @@ export default function App() {
           }
         />
 
+        <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/terms" element={<TermsOfService />} />
+
         {/* Protected App Route - handles both "/app" and "/app/:documentId" */}
         <Route
           path="/app/:documentId?"
@@ -260,6 +266,7 @@ export default function App() {
           element={<Navigate to={isAuthenticated ? '/app' : '/'} replace />}
         />
       </Routes>
+      <Analytics/>
     </>
   );
 }

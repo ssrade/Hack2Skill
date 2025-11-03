@@ -235,7 +235,7 @@ export function ProfilePage({ onBack }: ProfilePageProps) {
                       <>
                         <h1 className="text-black dark:text-white text-3xl font-bold mb-2">{name}</h1>
                         <p className="text-gray-500 dark:text-gray-500 text-sm">
-                          {inline('Member since March 2024')}
+                          {inline('LawBuddy AI Member')}
                         </p>
                       </>
                     )}

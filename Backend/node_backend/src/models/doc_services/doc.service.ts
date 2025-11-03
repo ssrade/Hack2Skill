@@ -47,7 +47,7 @@ export const getUserDocumentsService = async (userId: string) => {
   const documents = await agreementRepo.getAgreementsByUser(userId);
 
   const signedDocs = await Promise.all(
-    documents.map(async (doc) => {
+    documents.map(async (doc: any) => {
       if (doc.gcpFileUrl) {
         doc.gcpFileUrl = await generateSignedUrl(doc.gcpFileUrl);
       }

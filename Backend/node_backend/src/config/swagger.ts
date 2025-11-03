@@ -59,7 +59,12 @@ const options: any = {
       }
     }
   },
-  apis: [path.join(process.cwd(), 'src/models/**/*.ts')]
+  // In production the TypeScript sources are compiled to `dist` and the
+  // runtime should read JSDoc from the compiled JS files. In development
+  // we read the `.ts` files so editors show correct locations.
+  apis: (process.env.NODE_ENV === 'production')
+    ? [path.join(process.cwd(), 'dist/models/**/*.js')]
+    : [path.join(process.cwd(), 'src/models/**/*.ts')]
 }
 
 const swaggerSpec = swaggerJSDoc(options)

@@ -7,6 +7,7 @@ export const updateAnalysisData = async (
     summary: any;
     clauses: any;
     risks: any;
+    analysisMode?: 'basic' | 'pro';
   }
 ) => {
   try {
@@ -16,6 +17,7 @@ export const updateAnalysisData = async (
         summaryJson: data.summary,
         clausesJson: data.clauses,
         risksJson: data.risks,
+        analysisMode: data.analysisMode,
         processedAt: new Date()
       }
     });
@@ -73,7 +75,10 @@ export const getAllDocsOfUser = async (userId: string) => {
       select: {
         id: true,
         title: true,
-        description: true
+        description: true,
+        uploadDate: true,
+        createdAt: true,
+        analysisMode: true
       },
       orderBy: {
         uploadDate: "desc"

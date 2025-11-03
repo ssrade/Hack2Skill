@@ -73,8 +73,8 @@ CORPUS_NAME = "legal-rag-corpus"
 # --- Initialization ---
 load_dotenv()
 
-if not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
-    raise ValueError("GOOGLE_APPLICATION_CREDENTIALS environment variable not set.")
+# if not os.getenv("GOOGLE_APPLICATION_CREDENTIALS"):
+#     raise ValueError("GOOGLE_APPLICATION_CREDENTIALS environment variable not set.")
 
 vertexai.init(project=config.PROJECT_ID, location=config.VERTEX_AI_LOCATION)
 gemini = GenerativeModel("gemini-2.5-flash")
@@ -290,9 +290,37 @@ async def upload_doc_to_rag_local(
     """
     # ✅ Build file path
     file_path = os.path.join(UPLOAD_DIR, file_name)
-    print(f"[UPLOAD DEBUG] File path: {file_path}")
+    print(f"[UPLOAD DEBUG] Local file path: {file_path}")
 
-    # ✅ Validate file existence
+    # ✅ If file doesn't exist locally, try downloading from RAG GCS bucket
+    if not os.path.exists(file_path):
+        print(f"[UPLOAD DEBUG] File not found locally, attempting to download from RAG bucket...")
+        try:
+            from google.cloud import storage
+            
+            rag_bucket_name = os.getenv("RAG_GCS_BUCKET_NAME")
+            if not rag_bucket_name:
+                raise HTTPException(status_code=500, detail="RAG_GCS_BUCKET_NAME not configured.")
+            
+            storage_client = storage.Client()
+            bucket = storage_client.bucket(rag_bucket_name)
+            
+            # Try to download from masked_docs/ folder
+            blob_name = f"masked_docs/{file_name}"
+            blob = bucket.blob(blob_name)
+            
+            # Ensure upload directory exists
+            os.makedirs(UPLOAD_DIR, exist_ok=True)
+            
+            # Download file
+            blob.download_to_filename(file_path)
+            print(f"[✅] Downloaded from RAG bucket: gs://{rag_bucket_name}/{blob_name}")
+            
+        except Exception as gcs_error:
+            print(f"[❌] Failed to download from GCS: {gcs_error}")
+            raise HTTPException(status_code=400, detail=f"File not found locally or in RAG bucket: {file_name}")
+
+    # ✅ Validate file existence (after potential download)
     if not os.path.exists(file_path):
         raise HTTPException(status_code=400, detail="File not found in uploads folder.")
 
@@ -439,8 +467,7 @@ RAG_PROJECT_ID = os.getenv("RAG_PROJECT_ID")
 RAG_LOCATION = os.getenv("RAG_LOCATION")
 RAG_CORPUS = os.getenv("RAG_CORPUS")
 
-credentials = service_account.Credentials.from_service_account_file(SERVICE_ACCOUNT_PATH)
-vertexai.init(project=RAG_PROJECT_ID, location=RAG_LOCATION, credentials=credentials)
+vertexai.init(project=RAG_PROJECT_ID, location=RAG_LOCATION)
 
 
 

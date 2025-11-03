@@ -53,21 +53,42 @@ export const getUserDocuments = async (req: any, res: Response) => {
 
 export const previewDoc = async (req: Request, res: Response): Promise<void> => {
   try {
+    // Log request details for debugging
+    console.log('[PREVIEW DEBUG] Request body:', req.body);
+    console.log('[PREVIEW DEBUG] Content-Type:', req.get('Content-Type'));
+    console.log('[PREVIEW DEBUG] Request method:', req.method);
+    
+    // Handle case where req.body is undefined
+    if (!req.body) {
+      console.error('[PREVIEW ERROR] req.body is undefined');
+      res.status(400).json({ 
+        success: false, 
+        message: "Request body is missing. Ensure Content-Type is application/json" 
+      });
+      return;
+    }
+
     const { agreementId } = req.body;
 
     // Validate input
     if (!agreementId) {
+      console.error('[PREVIEW ERROR] agreementId is missing from request body');
       res.status(400).json({ success: false, message: "agreementId is required" });
       return;
     }
+
+    console.log('[PREVIEW DEBUG] Fetching preview for agreementId:', agreementId);
 
     // Call service layer
     const previewUrl = await agreementService.DocumentPreviewService(agreementId);
 
     if (!previewUrl) {
+      console.error('[PREVIEW ERROR] Preview URL not generated for agreementId:', agreementId);
       res.status(404).json({ success: false, message: "Document not found or cannot be previewed" });
       return;
     }
+
+    console.log('[PREVIEW SUCCESS] Preview URL generated:', previewUrl);
 
     // Send success response
     res.status(200).json({
@@ -88,7 +109,16 @@ export const previewDoc = async (req: Request, res: Response): Promise<void> => 
 
 export const deleteAgreementController = async (req: Request, res: Response): Promise<void> => {
   try {
-    const { agreementId } = req.body;
+    // Support agreementId from body, query or params. Some clients (or proxies) may omit
+    // the request body for DELETE requests, so fall back to query string.
+    const agreementId = (req as any)?.body?.agreementId || (req as any)?.query?.agreementId || (req as any)?.params?.agreementId;
+
+    // Log incoming delete request for debugging
+    console.log('Incoming delete request, agreementId sources:', {
+      body: (req as any)?.body,
+      query: req.query,
+      params: req.params,
+    });
 
     // Validate input
     if (!agreementId) {

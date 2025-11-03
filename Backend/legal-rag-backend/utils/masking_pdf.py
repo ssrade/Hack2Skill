@@ -39,6 +39,7 @@ import os
 async def mask_pdf(pdf_path: str):
     try:
         # ✅ Extract text
+        print(f"[mask_pdf] reading pdf_path={pdf_path} size_bytes={os.path.getsize(pdf_path) if os.path.exists(pdf_path) else 'missing'}")
         extracted_text = extract_text(pdf_path)
         mapping = {}
 
@@ -82,7 +83,27 @@ async def mask_pdf(pdf_path: str):
 
         c.save()
 
-        print(f"[✅] Masked PDF created: {masked_pdf_path}")
+        print(f"[✅] Masked PDF created locally: {masked_pdf_path}")
+
+        # ✅ Upload masked PDF to RAG GCS bucket for persistence across Cloud Run instances
+        try:
+            from google.cloud import storage
+            
+            rag_bucket_name = os.getenv("RAG_GCS_BUCKET_NAME")
+            if rag_bucket_name:
+                storage_client = storage.Client()
+                bucket = storage_client.bucket(rag_bucket_name)
+                
+                # Upload to masked_docs/ folder in RAG bucket
+                blob_name = f"masked_docs/{os.path.basename(masked_pdf_path)}"
+                blob = bucket.blob(blob_name)
+                blob.upload_from_filename(masked_pdf_path)
+                
+                print(f"[✅] Masked PDF uploaded to RAG bucket: gs://{rag_bucket_name}/{blob_name}")
+            else:
+                print("[⚠️] RAG_GCS_BUCKET_NAME not set - masked PDF only available locally")
+        except Exception as gcs_error:
+            print(f"[⚠️] GCS upload failed (file still available locally): {gcs_error}")
 
         return {
             "masked_pdf_path": masked_pdf_path,
@@ -90,5 +111,8 @@ async def mask_pdf(pdf_path: str):
         }
 
     except Exception as e:
+        import traceback
         print("[❌ ERROR IN mask_pdf]", str(e))
-        raise HTTPException(status_code=500, detail=str(e))
+        traceback.print_exc()
+        # Return a helpful HTTPException with a concise message while full stack is in logs
+        raise HTTPException(status_code=500, detail=f"Masking failed: {str(e)}")
