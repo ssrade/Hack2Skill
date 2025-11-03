@@ -30,7 +30,6 @@ build/
 *.der
 
 # Application config files 
-config.py
 settings.py
 secrets.py
 credentials.py

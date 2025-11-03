@@ -11,7 +11,6 @@ const getBaseURL = () => {
 };
 
 const baseURL = getBaseURL();
-console.log('🌐 API Base URL:', baseURL);
 
 const axiosClient = axios.create({
   baseURL: baseURL,

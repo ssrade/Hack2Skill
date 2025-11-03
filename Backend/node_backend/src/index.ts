@@ -16,7 +16,7 @@ import { authMiddleware } from "./middleware/auth.middleware";
 const app = express();
 
 // Middleware
-const allowedOrigins = ["http://localhost:5173"]; // front-end origin(s)
+const allowedOrigins = ["http://localhost:5173","https://hack2-skill-three.vercel.app"]; // front-end origin(s)
 app.use(cors({
   origin: allowedOrigins,
   methods: ["GET","POST","PUT","DELETE","OPTIONS"],
@@ -24,7 +24,17 @@ app.use(cors({
   credentials: true // only if you need to send cookies/auth headers
 }));
 
-app.use(express.json());
+// Body parsing middleware - must come before routes
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
+
+// Debug middleware to log all incoming requests
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  console.log('Headers:', JSON.stringify(req.headers, null, 2));
+  console.log('Body:', JSON.stringify(req.body, null, 2));
+  next();
+});
 
 // Register routers
 app.use('/auth', authRouter);

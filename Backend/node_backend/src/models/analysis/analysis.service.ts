@@ -1,4 +1,5 @@
 import fs from "fs"
+import axios from "axios"
 import FormData from "form-data"
 import axiosClient from "../../config/axios.config";
 import { updateAnalysisData, addMaskingJson, getMaskingJson, FetchExistingDocAnalysis, getQuestions, storeCloudDocId, getCloudDocId, addQuestions } from "./analysis.repository";
@@ -52,62 +53,57 @@ export const processPdfService = async (
             filename: file.originalname,
             contentType: file.mimetype || "application/pdf",
         });
-
         formData.append("doc_type", docType);
 
-        // STEP 1: Mask PDF
+        // STEP 1: Mask PDF (uploads to backend and returns masked PDF path)
         const maskResponse = await axiosClient.post("/mask-pdf", formData, {
             headers: formData.getHeaders(),
             timeout: 120000,
         });
 
-        const { masked_pdf_path: maskedPdfPath, mapping } = maskResponse.data;
+        const { masked_pdf_path, mapping } = maskResponse.data;
+        const fileName = masked_pdf_path.split('/').pop(); // Extract filename from path
+        
         await addMaskingJson(agreementId, mapping);
-        console.log("✅ Masking Success");
+        console.log("✅ Masking Success | File:", fileName);
+        console.log("📋 Masked PDF path:", masked_pdf_path);
 
-        const fileName = maskedPdfPath.split(/[\\/]/).pop();
+        // STEP 2: Upload to RAG (pass the full path for the backend to locate the file)
+        console.log("STEP 2 ➜ Uploading to RAG…");
+        
+        const ragFormData = new FormData();
+        ragFormData.append('file_name', fileName); // Python endpoint expects 'file_name', not 'file_path'
+        ragFormData.append('user_id', user);
+        ragFormData.append('doc_type', 'electronic');
+        
+        const ragResponse = await axiosClient.post("/upload-rag", ragFormData, {
+            headers: ragFormData.getHeaders(),
+            timeout: 120000
+        });
 
-        // STEP 2: Upload masked PDF
-        console.log("STEP 2 ➜ Uploading masked PDF…");
-        const uploadResponse = await axiosClient.post(
-            `/upload?file_name=${fileName}&doc_type=electronic&user_id=${user}`,
-            {},
-            { timeout: 120000 }
-        );
-
-        const { doc_id } = uploadResponse.data;
+        const { doc_id } = ragResponse.data;
         await storeCloudDocId(agreementId, doc_id);
-        console.log("✅ Upload Success | DOC ID:", doc_id);
+        console.log("✅ RAG Upload Success | DOC ID:", doc_id);
 
-        // STEP 3: Run Batch Pipeline + Upload to RAG (parallel)
-        console.log("STEP 3 ➜ Running Batch Pipeline and RAG Upload in parallel…");
+        // STEP 3: Run Batch Pipeline Analysis
+        console.log("STEP 3 ➜ Running Batch Pipeline Analysis…");
 
-        const batchForm = new URLSearchParams();
+        const batchForm = new FormData();
         batchForm.append("doc_id", doc_id);
         batchForm.append("user_id", user);
         batchForm.append("type", user_type);
 
-        const ragForm = new URLSearchParams();
-        ragForm.append("file_name", fileName);
-        ragForm.append("user_id", user);
-        ragForm.append("doc_type", "electronic");
+        const REQUEST_TIMEOUT_MS = 10 * 60 * 1000; // 10 minutes
 
-        // 🔥 Run both in parallel
-        const [analysisResponse, ragResponse] = await Promise.all([
-            axiosClient.post("/batch_pipeline", batchForm, {
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                timeout: 120000,
-            }),
-            axiosClient.post("/upload-rag", ragForm, {
-                headers: { "Content-Type": "application/x-www-form-urlencoded" },
-                timeout: 120000,
-            }),
-        ]);
+        const batchResponse = await axiosClient.post("/batch_pipeline", batchForm, {
+            headers: batchForm.getHeaders(),
+            timeout: REQUEST_TIMEOUT_MS,
+        });
 
-        console.log("✅ Pipeline & RAG upload completed");
+        console.log("✅ Batch Pipeline completed");
 
         // STEP 4: Unmask analysis results
-        const { summary, clauses, risks } = analysisResponse.data;
+        const { summary, clauses, risks } = batchResponse.data;
 
         const unmaskedSummary = unmaskData(summary, mapping);
         const unmaskedClauses = unmaskData(clauses, mapping);
@@ -117,24 +113,26 @@ export const processPdfService = async (
             summary: unmaskedSummary,
             clauses: unmaskedClauses,
             risks: unmaskedRisks,
+            analysisMode: user_type as 'basic' | 'pro',
         });
 
-        const chatSession = await createChatSessionRepo(user, agreementId, file.originalname)
+        // STEP 5: Create chat session
+        const chatSession = await createChatSessionRepo(user, agreementId, file.originalname);
+        await addDocIdTOChatSession(doc_id, chatSession.id);
 
-        await addDocIdTOChatSession(ragResponse.data.doc_id, chatSession.id)
+        console.log("✅ PDF processing completed successfully");
 
         return {
             success: true,
             message: "PDF processing completed successfully",
             docId: doc_id,
-            rag: ragResponse.data,
             analysis: { unmaskedSummary, unmaskedClauses, unmaskedRisks },
         };
     } catch (err: any) {
-        console.error("❌ Error in processPdfService:", err?.response?.data || err);
+        console.error("❌ Error in processPdfService:", err?.response?.data || err.message || err);
         return {
             success: false,
-            message: err?.response?.data?.detail || "Failed during PDF processing",
+            message: err?.response?.data?.detail || err?.message || "Failed during PDF processing",
         };
     }
 };
@@ -297,8 +295,11 @@ export const getRuleBookService = async (agreementId: string) => {
     const summary = data.summaryJson;
 
     // 3️⃣ Call FastAPI endpoint to get rulebook explanations
-    const response = await axiosClient.post(
-        "http://localhost:8000/view-rulebook-source",
+
+    // Use configured external python service base URL. Prefer PYTHON_BASE_URL if provided
+    // (your deployed Python FastAPI). Fall back to RULEBOOK_SERVICE_BASE, then localhost.
+    const rulebookBase = process.env.PYTHON_BASE_URL;
+    const response = await axios.post(`${rulebookBase}/view-rulebook-source`,
         { summary },
         {
             params: { top_k: 5 },

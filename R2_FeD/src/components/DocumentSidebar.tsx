@@ -27,17 +27,28 @@ interface DocumentSidebarProps {
 }
 
 // Helper function to format upload date
-const formatUploadDate = (dateString: string) => {
-    try {
-      return new Date(dateString).toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    } catch {
-      return dateString;
+const formatUploadDate = (dateString: string | undefined | null) => {
+  if (!dateString || dateString === '') {
+    return 'Date not available';
+  }
+  
+  try {
+    const date = new Date(dateString);
+    
+    // Check if date is valid
+    if (isNaN(date.getTime())) {
+      return 'Invalid date';
     }
-  };
+    
+    return date.toLocaleDateString('en-US', {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric'
+    });
+  } catch {
+    return 'Date not available';
+  }
+};
 
 export function DocumentSidebar({
   documents,
@@ -240,10 +251,20 @@ export function DocumentSidebar({
                     <h3 className="text-black dark:text-white text-sm truncate pr-8">
                       {doc.name}
                     </h3>
-                    <div className="flex items-center gap-1 mt-1">
+                    <div className="flex items-center gap-2 mt-1 flex-wrap">
                       <span className="text-gray-500 dark:text-gray-400 text-xs">
                         {formatUploadDate(doc.uploadDate)}
                       </span>
+                      {/* Analysis Mode Badge */}
+                      {doc.analysisMode && (
+                        <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-medium ${
+                          doc.analysisMode === 'pro'
+                            ? 'bg-purple-100 text-purple-700 dark:bg-purple-500/20 dark:text-purple-300'
+                            : 'bg-blue-100 text-blue-700 dark:bg-blue-500/20 dark:text-blue-300'
+                        }`}>
+                          {doc.analysisMode === 'pro' ? '⭐ Pro' : '📝 Basic'}
+                        </span>
+                      )}
                     </div>
                     <div className="mt-2">
                       <div

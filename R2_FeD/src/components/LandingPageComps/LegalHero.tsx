@@ -142,7 +142,7 @@ export const LegalHero = () => {
 
           {/* Features grid */}
           <motion.div
-            className="flex flex-row items-center justify-center text-center gap-5 mt-10"
+            className="flex flex-col sm:flex-row items-center justify-center text-center gap-5 mt-10"
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.5 }}

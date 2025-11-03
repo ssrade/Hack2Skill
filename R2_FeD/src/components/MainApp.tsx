@@ -16,6 +16,7 @@ export interface Document {
   name: string;
   uploadDate: string;
   status: 'analyzed' | 'processing' | 'pending';
+  analysisMode?: 'basic' | 'pro'; // Add analysis mode
   fileUrl?: string;
   evals: {
     riskScore: number;

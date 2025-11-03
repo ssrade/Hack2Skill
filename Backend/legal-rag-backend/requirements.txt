@@ -30,7 +30,7 @@ matplotlib
 vertexai
 google-cloud-aiplatform
 python-multipart
-google-adk
+google-adk>=1.17.0
 presidio-analyzer
 presidio-anonymizer
 spacy

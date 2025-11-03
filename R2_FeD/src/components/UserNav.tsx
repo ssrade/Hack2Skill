@@ -115,7 +115,8 @@ export function UserNav({
               <span>{inline('Language')}</span>
             </DropdownMenuSubTrigger>
             <DropdownMenuSubContent 
-              className="bg-white dark:bg-gray-800 backdrop-blur-xl border-gray-300 dark:border-gray-700 text-black dark:text-white"
+              className="bg-white dark:bg-gray-800 backdrop-blur-xl border-gray-300 dark:border-gray-700 text-black dark:text-white
+                         max-h-[400px] overflow-y-auto scrollbar-hide"
               sideOffset={8}
               alignOffset={-5}
             >
