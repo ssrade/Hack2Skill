@@ -12,6 +12,7 @@ A modern, AI-powered legal document analysis platform that helps users understan
 
 ![LawBuddy AI](https://img.shields.io/badge/Status-Active-success)
 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ssrade/Hack2Skill)
 ## 🎯 What is LawBuddy AI?
 
 LawBuddy AI is a comprehensive legal document analysis application that leverages advanced AI algorithms (RAG with Vertex AI) to analyze legal agreements, identify risks, extract key clauses, and provide actionable insights. The platform features a beautiful, modern interface with real-time document processing, interactive chat capabilities, and multi-language support.
