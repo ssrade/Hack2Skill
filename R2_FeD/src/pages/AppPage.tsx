@@ -310,6 +310,8 @@ export function AppPage({
                 documents={documents}
                 onUpload={handleUploadAndSelect} // Use new nav handler
                 onSelect={handleSelectDocument} // Use new nav handler
+                isMobileSidebarOpen={isMobileSidebarOpen}
+                setIsMobileSidebarOpen={setIsMobileSidebarOpen}
               />
             </motion.div>
           ) : (

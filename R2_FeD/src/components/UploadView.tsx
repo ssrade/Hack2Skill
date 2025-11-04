@@ -16,6 +16,7 @@ import {
   Award,
   ArrowLeft,
   Loader2,
+  Menu,
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from './lib/utils';
@@ -46,6 +47,8 @@ interface UploadViewProps {
   onUpload: (file: File, documentType: DocumentType) => void;
   documents: Document[];
   onSelect: (id: string) => void;
+  isMobileSidebarOpen?: boolean;
+  setIsMobileSidebarOpen?: (open: boolean) => void;
 }
 
 // Analysis steps for loader (will be translated dynamically)
@@ -72,7 +75,7 @@ const STEP_DURATIONS = [
   -1      // Nearly complete - stays until done
 ];
 
-export function UploadView({ onUpload, documents, onSelect }: UploadViewProps) {
+export function UploadView({ onUpload, documents, onSelect, isMobileSidebarOpen, setIsMobileSidebarOpen }: UploadViewProps) {
   const { inline, t, currentLanguage } = useTranslation();
   const [analysisType, setAnalysisType] = useState<'basic' | 'professional'>('basic');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -474,14 +477,63 @@ const handleAnalyze = async () => {
 
   return (
     <div className="relative flex w-full h-full rounded-2xl transition-all duration-500 overflow-hidden bg-white dark:bg-transparent">
+      {/* Mobile Sidebar Overlay */}
+      <AnimatePresence>
+        {isMobileSidebarOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileSidebarOpen && setIsMobileSidebarOpen(false)}
+              className="fixed inset-0  bg-black/20 z-20 lg:hidden"
+              aria-label="Close sidebar"
+            />
+            
+            {/* Mobile Sidebar Content */}
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ duration: 0.3, ease: 'easeInOut' }}
+              className="fixed top-0 left-0 h-full pt-16  bg-slate-300/10 backdrop-blur-lg z-30 lg:hidden"
+            >
+              <ModalDocumentList documents={documents} onSelect={(id) => {
+                handleSelect(id);
+                setIsMobileSidebarOpen && setIsMobileSidebarOpen(false);
+              }} />
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+
+      {/* Mobile Menu Button */}
+      {setIsMobileSidebarOpen && (
+        <div className="fixed top-6 left-4 z-[60] lg:hidden">
+          <Button
+            variant="outline"
+            size="icon"
+            onClick={() => {
+              console.log('Menu clicked, current state:', isMobileSidebarOpen);
+              setIsMobileSidebarOpen(!isMobileSidebarOpen);
+            }}
+            className="bg-white/90 dark:bg-gray-800/80 backdrop-blur-md border-gray-300 dark:border-gray-700/50 shadow-lg hover:bg-white dark:hover:bg-gray-800"
+            aria-label="Toggle document list"
+          >
+            <Menu className="w-5 h-5 text-black dark:text-white" />
+          </Button>
+        </div>
+      )}
+
       <div className="absolute top-44 left-44 w-96 h-66 -translate-x-1/4 -translate-y-1/4 bg-blue-700/50 rounded-full blur-[100px] opacity-20 dark:opacity-40 pointer-events-none z-0"></div>
       <div className="absolute top-20 right-60 w-32 h-32 bg-pink-500 rounded-full blur-3xl opacity-20 dark:opacity-50 pointer-events-none z-0 animate-float-1"></div>
       <div className="absolute bottom-40 left-40 w-24 h-24 bg-teal-500 rounded-full blur-2xl opacity-30 dark:opacity-60 pointer-events-none z-0 animate-float-2"></div>
 
-      <div className="relative z-10 flex w-full transition-all duration-500 h-full">
+      <div className="relative z-10 flex w-full transition-all duration-500 h-full flex-col lg:flex-row">
         <div
           className={cn(
-            'w-[50%] h-full border-r transition-all duration-500 border-gray-200 dark:border-gray-700/50',
+            'w-full lg:w-[50%] h-full border-r transition-all duration-500 border-gray-200 dark:border-gray-700/50',
             'dark:bg-gray-800/40 backdrop-blur-sm',
             'hidden lg:block'
           )}
@@ -489,7 +541,7 @@ const handleAnalyze = async () => {
           <ModalDocumentList documents={documents} onSelect={handleSelect} />
         </div>
 
-        <div className="max-w-full lg:w-[50%] h-full">
+        <div className="w-full lg:w-[50%] h-full flex-1 min-w-0">
           <Card
             className={cn(
               'relative border-none transition-all duration-500 overflow-hidden h-full rounded-l-none',
@@ -504,7 +556,7 @@ const handleAnalyze = async () => {
             onDrop={handleDrop}
           >
             <ScrollArea className="flex-1 min-h-0 [&_[data-orientation='vertical']]:hidden">
-              <div className="p-7 text-center relative z-10 h-full flex flex-col">
+              <div className="p-4 sm:p-6 lg:p-7 text-center relative z-10 h-full flex flex-col">
                 <input
                   ref={fileInputRef}
                   type="file"
@@ -681,15 +733,15 @@ const handleAnalyze = async () => {
                               {inline('File Ready for Upload')}
                             </h3>
 
-                            <div className="bg-gray-100 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-700/50 rounded-xl p-4 w-full flex items-center gap-4">
+                            <div className="bg-gray-100 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-700/50 rounded-xl p-4 w-full flex items-center gap-3 min-w-0">
                               <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-blue-100 dark:bg-blue-500/20 flex items-center justify-center">
                                 <FileText className="w-6 h-6 text-blue-600 dark:text-blue-300" />
                               </div>
-                              <div className="flex-1 min-w-0 text-left">
-                                <p className="text-black dark:text-white font-medium truncate">
+                              <div className="flex-1 min-w-0 text-left overflow-hidden">
+                                <p className="text-black dark:text-white font-medium break-words line-clamp-2 text-sm sm:text-base">
                                   {selectedFile.name}
                                 </p>
-                                <p className="text-sm text-gray-500 dark:text-gray-400">
+                                <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
                                   {(selectedFile.size / 1024 / 1024).toFixed(2)}{' '}
                                   MB • {inline('Ready')}
                                 </p>
@@ -698,7 +750,7 @@ const handleAnalyze = async () => {
                                 onClick={() => setSelectedFile(null)}
                                 size="icon"
                                 variant="ghost"
-                                className="text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700/50"
+                                className="text-gray-500 dark:text-gray-400 hover:text-black dark:hover:text-white hover:bg-gray-200 dark:hover:bg-gray-700/50 flex-shrink-0"
                               >
                                 <X className="w-5 h-5" />
                               </Button>
@@ -858,15 +910,15 @@ const handleAnalyze = async () => {
                           </div>
 
                           {/* Uploaded Document Info */}
-                          <div className="bg-gray-100 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-700/50 rounded-xl p-4 w-full flex items-center gap-4">
+                          <div className="bg-gray-100 dark:bg-gray-900/50 border border-gray-300 dark:border-gray-700/50 rounded-xl p-4 w-full flex items-center gap-3 min-w-0">
                             <div className="flex-shrink-0 w-12 h-12 rounded-lg bg-green-100 dark:bg-green-500/20 flex items-center justify-center">
                               <FileText className="w-6 h-6 text-green-600 dark:text-green-300" />
                             </div>
-                            <div className="flex-1 min-w-0 text-left">
-                              <p className="text-black dark:text-white font-medium truncate">
+                            <div className="flex-1 min-w-0 text-left overflow-hidden">
+                              <p className="text-black dark:text-white font-medium break-words line-clamp-2 text-sm sm:text-base">
                                 {selectedFile?.name}
                               </p>
-                              <p className="text-sm text-gray-500 dark:text-gray-400">
+                              <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-1">
                                 {inline('Uploaded')} • {inline('Ready for Analysis')}
                               </p>
                             </div>
