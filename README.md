@@ -13,6 +13,7 @@ A modern, AI-powered legal document analysis platform that helps users understan
 ![LawBuddy AI](https://img.shields.io/badge/Status-Active-success)
 
 [![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/ssrade/Hack2Skill)
+
 ## 🎯 What is LawBuddy AI?
 
 LawBuddy AI is a comprehensive legal document analysis application that leverages advanced AI algorithms (RAG with Vertex AI) to analyze legal agreements, identify risks, extract key clauses, and provide actionable insights. The platform features a beautiful, modern interface with real-time document processing, interactive chat capabilities, and multi-language support.
@@ -37,16 +38,19 @@ LawBuddy AI is a comprehensive legal document analysis application that leverage
 Before you begin, ensure you have the following installed:
 
 - **Node.js** (v18 or higher)
-- **npm** or **yarn** package manager
+- **Python** (v3.10 or higher)
+- **PostgreSQL** database
+- **Docker** (optional, for containerized deployment)
 - A modern web browser (Chrome, Firefox, Safari, or Edge)
 
 ### Installation
 
-1. **Clone the repository**
+#### Frontend Setup (R2_FeD)
+
+1. **Navigate to frontend directory**
 
 ```bash
-git clone https://github.com/ssrade/Hack2Skill.git
-cd Hack2Skill/R2_FeD
+cd R2_FeD
 ```
 
 2. **Install dependencies**
@@ -57,7 +61,7 @@ npm install
 
 3. **Set up environment variables**
 
-Create a `.env` file in the root directory:
+Create a `.env` file in the R2_FeD directory:
 
 ```env
 VITE_API_BASE_URL=your_backend_api_url
@@ -70,118 +74,225 @@ VITE_GOOGLE_CLIENT_ID=your_google_oauth_client_id
 npm run dev
 ```
 
-The application will be available at `https://hack2-skill-three.vercel.app/`
+#### Backend Setup (Node Backend)
 
-### Building for Production
-
-```bash
-npm run build
-```
-
-The production-ready files will be in the `dist` directory.
-
-### Preview Production Build
+1. **Navigate to node backend directory**
 
 ```bash
-npm run preview
+cd node_backend
 ```
 
-## 📖 Usage
+2. **Install dependencies**
 
-### Basic Workflow
-
-1. **Sign Up/Login**: Create an account or sign in using Google OAuth
-2. **Upload Documents**: Upload legal documents (PDF, DOCX) for analysis
-3. **View Analysis**: Review the AI-generated risk scores, complexity ratings, and extracted clauses
-4. **Interactive Chat**: Ask questions about your document using the chat interface
-5. **Manage Documents**: Preview, download, or delete documents from your dashboard
-
-### Example: Uploading a Document
-
-```typescript
-// The app provides two upload types:
-// - Electronic Documents (digital PDFs)
-// - Scanned Documents (scanned images requiring OCR)
-
-// Simply drag and drop or click to upload
-// The AI will automatically analyze and provide insights
+```bash
+npm install
 ```
 
-### Example: Chat with Your Document
+3. **Set up Prisma**
 
-```typescript
-// Ask natural language questions about your legal document:
-// "What are the termination clauses?"
-// "Explain the payment terms in simple language"
-// "What are the risks in this contract?"
+```bash
+npx prisma generate
+npx prisma migrate dev
 ```
 
-## 🛠️ Tech Stack
+4. **Start the server**
 
-### Frontend Framework
-- **React 19.1.1** - UI library
-- **TypeScript 5.9.3** - Type-safe JavaScript
-- **Vite 7.1.7** - Build tool and dev server
+```bash
+npm run dev
+```
 
-### UI & Styling
-- **TailwindCSS 4.1.14** - Utility-first CSS framework
-- **Radix UI** - Accessible component primitives
-- **Framer Motion 12.23.24** - Animation library
-- **Lucide React** - Icon library
+#### Backend Setup (Legal RAG Backend)
 
-### State Management & Routing
-- **React Router DOM 7.9.4** - Client-side routing
-- **React Context API** - Global state management
+1. **Navigate to legal RAG backend directory**
 
-### Data Visualization
-- **Recharts 3.3.0** - Chart library for analytics
+```bash
+cd legal-rag-backend
+```
 
-### Authentication
-- **@react-oauth/google** - Google OAuth integration
-- **jwt-decode** - JWT token handling
+2. **Install Python dependencies**
 
-### HTTP Client
-- **Axios 1.13.1** - Promise-based HTTP client
+```bash
+pip install -r requirements.txt
+```
+
+3. **Configure environment variables**
+
+Create a `.env` file with necessary API keys and configurations.
+
+4. **Start the Flask server**
+
+```bash
+python app.py
+```
 
 ## 📁 Project Structure
 
 ```
-R2_FeD/
-├── src/
-│   ├── api/              # API client modules
-│   │   ├── agreementApi.ts
-│   │   ├── authApi.ts
-│   │   ├── ragQueryApi.ts
-│   │   └── uploadDocument.ts
-│   ├── components/       # Reusable UI components
-│   │   ├── ui/          # Base UI components (buttons, cards, etc.)
-│   │   ├── ChatInterface.tsx
-│   │   ├── DocumentSidebar.tsx
-│   │   ├── DocumentView.tsx
-│   │   └── MainApp.tsx
-│   ├── contexts/         # React Context providers
-│   │   ├── AuthContext.tsx
-│   │   └── TranslationContext.tsx
-│   ├── hooks/           # Custom React hooks
-│   │   └── useDocuments.ts
-│   ├── pages/           # Page components
-│   │   ├── Landing.tsx
-│   │   ├── LoginPage.tsx
-│   │   ├── AppPage.tsx
-│   │   └── ProfilePage.tsx
-│   ├── services/        # Business logic services
-│   ├── styles/          # Global styles
-│   ├── types/           # TypeScript type definitions
-│   ├── utils/           # Utility functions
-│   ├── App.tsx          # Root component
-│   └── main.tsx         # Application entry point
-├── public/              # Static assets
-├── index.html           # HTML template
-├── package.json         # Dependencies and scripts
-├── tsconfig.json        # TypeScript configuration
-├── vite.config.ts       # Vite configuration
-└── tailwind.config.js   # Tailwind CSS configuration
+Hack2Skill/
+├── Backend/
+│   ├── legal-rag-backend/          # Python Flask Backend for RAG
+│   │   ├── app.py                  # Main Flask application
+│   │   ├── config.py               # Configuration settings
+│   │   ├── requirements.txt        # Python dependencies
+│   │   ├── Dockerfile             # Docker configuration
+│   │   ├── rag/                   # RAG implementation
+│   │   │   ├── agent.py           # RAG agent logic
+│   │   │   ├── prompts.py         # Prompt templates
+│   │   │   └── prepare_corpus_and_data.py
+│   │   ├── utils/                 # Utility modules
+│   │   │   ├── chunker.py         # Text chunking
+│   │   │   ├── embeddings.py      # Embedding generation
+│   │   │   ├── firestore_utils.py # Firestore integration
+│   │   │   ├── masking_pdf.py     # PDF masking
+│   │   │   ├── pdf_extraction.py  # PDF text extraction
+│   │   │   ├── pinecone_client.py # Pinecone vector DB
+│   │   │   ├── retrieval.py       # Document retrieval
+│   │   │   ├── vertex_rag.py      # Vertex AI integration
+│   │   │   └── pdf_generator/     # PDF generation
+│   │   └── uploads/               # Document uploads
+│   │       └── masked_docs/       # Masked documents
+│   │
+│   └── node_backend/              # Node.js/TypeScript Backend
+│       ├── src/
+│       │   ├── index.ts           # Main server entry point
+│       │   ├── config/            # Configuration files
+│       │   │   ├── database.ts    # Prisma database config
+│       │   │   ├── gcp.config.ts  # Google Cloud Platform
+│       │   │   ├── googleAuth.ts  # OAuth configuration
+│       │   │   ├── swagger.ts     # API documentation
+│       │   │   └── zep.config.ts  # Memory/chat config
+│       │   ├── middleware/        # Express middleware
+│       │   │   └── auth.middleware.ts
+│       │   └── models/            # Business logic modules
+│       │       ├── analysis/      # Document analysis
+│       │       ├── auth/          # Authentication
+│       │       ├── doc_services/  # Document services
+│       │       ├── masking/       # Document masking
+│       │       ├── memory/        # Chat memory
+│       │       ├── pref_model/    # User preferences
+│       │       ├── profile/       # User profiles
+│       │       ├── rag_query/     # RAG query handling
+│       │       └── speechToText/  # Speech-to-text
+│       ├── prisma/                # Database schema
+│       │   ├── schema.prisma      # Prisma schema
+│       │   └── migrations/        # Database migrations
+│       ├── package.json           # Node dependencies
+│       ├── tsconfig.json          # TypeScript config
+│       ├── Dockerfile            # Docker configuration
+│       └── docker-compose.yml     # Docker Compose config
+│
+└── R2_FeD/                        # React Frontend
+    ├── src/
+    │   ├── main.tsx               # Application entry point
+    │   ├── App.tsx                # Root component
+    │   ├── api/                   # API client modules
+    │   │   ├── agreementApi.ts
+    │   │   ├── agreementProcessApi.ts
+    │   │   ├── agreementQuestionsApi.ts
+    │   │   ├── analysisApi.ts
+    │   │   ├── authApi.ts
+    │   │   ├── axiosClient.ts
+    │   │   ├── deleteDocumentApi.ts
+    │   │   ├── previewApi.ts
+    │   │   ├── ragQueryApi.ts
+    │   │   ├── reportApi.ts
+    │   │   ├── rulebookApi.ts
+    │   │   └── uploadDocument.ts
+    │   ├── components/            # Reusable UI components
+    │   │   ├── ui/               # Base UI components
+    │   │   │   ├── avatar.tsx
+    │   │   │   ├── badge.tsx
+    │   │   │   ├── button.tsx
+    │   │   │   ├── card.tsx
+    │   │   │   ├── dialog.tsx
+    │   │   │   ├── dropdown-menu.tsx
+    │   │   │   ├── input.tsx
+    │   │   │   ├── label.tsx
+    │   │   │   ├── progress.tsx
+    │   │   │   ├── scroll-area.tsx
+    │   │   │   ├── tabs.tsx
+    │   │   │   ├── textarea.tsx
+    │   │   │   └── toast.tsx
+    │   │   ├── figma/            # Figma components
+    │   │   │   └── ImageWithFallback.tsx
+    │   │   ├── LandingPageComps/ # Landing page components
+    │   │   │   ├── LegalDisclaimer.tsx
+    │   │   │   └── LegalHero.tsx
+    │   │   ├── ChatInterface.tsx
+    │   │   ├── DocumentCard.tsx
+    │   │   ├── DocumentExtrasSidebar.tsx
+    │   │   ├── DocumentPreviewModal.tsx
+    │   │   ├── DocumentSidebar.tsx
+    │   │   ├── DocumentSkeleton.tsx
+    │   │   ├── DocumentView.tsx
+    │   │   ├── MainApp.tsx
+    │   │   ├── ModalDocumentList.tsx
+    │   │   ├── OfflineBanner.tsx
+    │   │   ├── SessionTimeoutBanner.tsx
+    │   │   ├── UploadView.tsx
+    │   │   └── UserNav.tsx
+    │   ├── contexts/             # React Context providers
+    │   │   ├── AuthContext.tsx
+    │   │   └── TranslationContext.tsx
+    │   ├── hooks/                # Custom React hooks
+    │   │   ├── documentsApi.ts
+    │   │   ├── useDocuments.ts
+    │   │   └── useTranslatedText.ts
+    │   ├── pages/                # Page components
+    │   │   ├── AdminPanel.tsx
+    │   │   ├── AppPage.tsx
+    │   │   ├── Landing.tsx
+    │   │   ├── LoginPage.tsx
+    │   │   ├── PrivacyPolicy.tsx
+    │   │   ├── ProfilePage.tsx
+    │   │   ├── SignupPage.tsx
+    │   │   └── TermsOfService.tsx
+    │   ├── services/             # Business logic services
+    │   │   └── translationService.ts
+    │   ├── styles/               # Global styles
+    │   │   └── globals.css
+    │   ├── types/                # TypeScript type definitions
+    │   │   ├── auth.ts
+    │   │   └── index.ts
+    │   └── utils/                # Utility functions
+    │       └── errorHandler.ts
+    ├── public/                   # Static assets
+    ├── index.html                # HTML template
+    ├── package.json              # Dependencies and scripts
+    ├── tsconfig.json             # TypeScript configuration
+    ├── vite.config.ts            # Vite configuration
+    ├── vercel.json               # Vercel deployment config
+    └── eslint.config.js          # ESLint configuration
 ```
+
+## 🛠️ Tech Stack
+
+### Frontend (R2_FeD)
+- **React 19.1.1** - UI library
+- **TypeScript 5.9.3** - Type-safe JavaScript
+- **Vite 7.1.7** - Build tool and dev server
+- **TailwindCSS 4.1.14** - Utility-first CSS framework
+- **Radix UI** - Accessible component primitives
+- **Framer Motion 12.23.24** - Animation library
+- **React Router DOM 7.9.4** - Client-side routing
+- **Axios 1.13.1** - HTTP client
+
+### Backend - Node.js (node_backend)
+- **Node.js & TypeScript** - Server runtime
+- **Express.js** - Web framework
+- **Prisma** - ORM for PostgreSQL
+- **PostgreSQL** - Primary database
+- **Swagger** - API documentation
+- **Google Cloud Platform** - Cloud services
+- **Zep** - Memory management for chat
+
+### Backend - Python (legal-rag-backend)
+- **Flask** - Web framework
+- **Google Vertex AI** - AI/ML platform
+- **Pinecone** - Vector database
+- **Firestore** - Document storage
+- **RAG (Retrieval-Augmented Generation)** - AI architecture
+- **PDF Processing Libraries** - Document handling
 
 ## 🎨 Key Components
 
@@ -215,15 +326,20 @@ const { user, login, logout, isAuthenticated } = useAuth();
 
 ## 🌐 API Integration
 
-The frontend connects to a backend API for:
+The application uses a three-tier architecture:
 
-- Document upload and processing
-- AI-powered analysis using RAG and Vertex AI
-- User authentication and management
-- Real-time chat with document context
-- Document retrieval and management
+1. **Frontend (R2_FeD)** - React application
+2. **Node Backend** - REST API, authentication, database operations
+3. **Python Backend** - RAG processing, AI analysis, document processing
 
-API endpoints are configured via environment variables.
+### Key API Endpoints
+
+- `/api/auth/*` - Authentication endpoints
+- `/api/documents/*` - Document management
+- `/api/analysis/*` - Document analysis
+- `/api/rag-query/*` - RAG-based queries
+- `/api/profile/*` - User profile management
+- `/api/memory/*` - Chat memory management
 
 ## 🎯 Features in Detail
 
@@ -244,6 +360,7 @@ API endpoints are configured via environment variables.
 - Context-aware responses based on document content
 - Message history per document
 - Markdown support for formatted responses
+- Memory persistence using Zep
 
 ### User Profile
 - Custom profile picture upload
@@ -251,6 +368,12 @@ API endpoints are configured via environment variables.
 - Edit personal information
 - View document statistics
 - Multi-language preferences
+
+### Admin Panel
+- User management
+- Document analytics
+- System monitoring
+- Usage statistics
 
 ### Translation Support
 - Built-in translation service
@@ -260,7 +383,7 @@ API endpoints are configured via environment variables.
 
 ## 🔧 Development
 
-### Available Scripts
+### Available Scripts - Frontend
 
 ```bash
 # Start development server
@@ -276,31 +399,39 @@ npm run preview
 npm run lint
 ```
 
-### Code Quality
+### Available Scripts - Node Backend
 
-The project uses:
-- **ESLint** - Code linting
-- **TypeScript** - Type checking
-- **Prettier** (recommended) - Code formatting
+```bash
+# Start development server
+npm run dev
 
-### Environment Variables
+# Build TypeScript
+npm run build
 
-```env
-# API Configuration
-VITE_API_BASE_URL=http://localhost:8000
+# Run migrations
+npx prisma migrate dev
 
-# Google OAuth
-VITE_GOOGLE_CLIENT_ID=your_client_id_here
+# Generate Prisma client
+npx prisma generate
+```
 
-# Optional: Feature Flags
-VITE_ENABLE_ANALYTICS=false
+### Available Scripts - Python Backend
+
+```bash
+# Start Flask server
+python app.py
+
+# Run tests
+python test_pinecone.py
+python test_vertexai.py
 ```
 
 ## 📚 Documentation
 
 - **Component Documentation**: See inline JSDoc comments in component files
-- **API Documentation**: Refer to the Backend API documentation
+- **API Documentation**: Available via Swagger at `/api-docs`
 - **Type Definitions**: Check `src/types/` for TypeScript interfaces
+- **Database Schema**: See `prisma/schema.prisma`
 
 ## 🤝 Contributing
 
@@ -326,8 +457,12 @@ We welcome contributions! Here's how you can help:
 
 **Port already in use**
 ```bash
-# Change the port in vite.config.ts or kill the process using the port
+# Frontend
 lsof -ti:5173 | xargs kill -9  # macOS/Linux
+
+# Backend
+lsof -ti:3000 | xargs kill -9  # Node backend
+lsof -ti:5000 | xargs kill -9  # Python backend
 ```
 
 **Build errors**
@@ -337,9 +472,16 @@ rm -rf node_modules package-lock.json
 npm install
 ```
 
+**Database connection issues**
+```bash
+# Reset Prisma
+npx prisma migrate reset
+npx prisma generate
+```
+
 **API connection issues**
 - Verify `VITE_API_BASE_URL` in `.env`
-- Check if backend server is running
+- Check if backend servers are running
 - Review CORS configuration
 
 ## 📞 Support
@@ -352,12 +494,11 @@ For help and support:
 
 ## 👥 Team
 
-**Maintainers:**
-- [@ssrade](https://github.com/ssrade) - Project Lead
 
 **Contributors:**
+- [@ssrade](https://github.com/ssrade) - Shubham Rade
 - [@MaNaa04](https://github.com/MaNaa04) - Manas Pawar
-- [@arpan9422](https://github.com/arpan9422) - Arpan Agrawal
+- [@arpan9422](https://github.com/arpan9422) - Arpan Agrawal 
 - [@TanmayNawlakhe](https://github.com/TanmayNawlakhe) - Tanmay Nawlakhe
 - [@adityaa2404](https://github.com/adityaa2404) - Aditya Potdar
 
@@ -375,6 +516,8 @@ This project is private and proprietary. All rights reserved.
 - Icons by [Lucide](https://lucide.dev/)
 - AI powered by Google Vertex AI
 - Animations by [Framer Motion](https://www.framer.com/motion/)
+- Vector database by [Pinecone](https://www.pinecone.io/)
+- ORM by [Prisma](https://www.prisma.io/)
 
 ## 🗺️ Roadmap
 
@@ -386,6 +529,8 @@ This project is private and proprietary. All rights reserved.
 - [ ] Integration with legal databases
 - [ ] Advanced analytics dashboard
 - [ ] Team collaboration features
+- [ ] Real-time collaboration
+- [ ] Voice-to-text document queries
 
 ---
 
