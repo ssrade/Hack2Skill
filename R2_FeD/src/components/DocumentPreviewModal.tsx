@@ -208,15 +208,24 @@ export function DocumentPreviewModal({
                       </div>
                     </motion.div>
                   ) : document.fileUrl ? (
-                    <motion.iframe
-                      src={document.fileUrl}
-                      className="w-full h-full min-h-[800px] border-0"
-                      title={document.name}
-                      sandbox="allow-scripts allow-same-origin"
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.3, duration: 0.5 }}
-                    />
+                    <div className="relative w-full h-full min-h-[800px]">
+                      <motion.object
+                        data={document.fileUrl}
+                        type="application/pdf"
+                        className="w-full h-full min-h-[800px]"
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ delay: 0.3, duration: 0.5 }}
+                      >
+                        {/* Fallback to iframe if object tag fails */}
+                        <iframe
+                          src={`${document.fileUrl}#view=FitH`}
+                          className="w-full h-full min-h-[800px] border-0"
+                          title={document.name}
+                          allow="fullscreen"
+                        />
+                      </motion.object>
+                    </div>
                   ) : (
                     /* Fallback UI when no file URL is available */
                     <motion.div 
@@ -282,63 +291,6 @@ export function DocumentPreviewModal({
                     </motion.div>
                   )}
                 </motion.div>
-              </motion.div>
-
-              {/* Footer with slide up animation */}
-              <motion.div 
-                className="px-6 py-3 border-t border-gray-200 dark:border-gray-800 bg-gray-50 dark:bg-gray-900/50 flex-shrink-0"
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: 20 }}
-                transition={{ duration: 0.3, delay: 0.2 }}
-              >
-                <div className="flex items-center justify-between text-sm">
-                  <div className="flex items-center gap-4 text-gray-600 dark:text-gray-400">
-                    <motion.span
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.4 }}
-                    >
-                      <span className="font-medium">Risk Score:</span> {document.evals?.riskScore || 'N/A'}
-                    </motion.span>
-                    <span className="text-gray-300 dark:text-gray-700">•</span>
-                    <motion.span
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.5 }}
-                    >
-                      <span className="font-medium">Complexity:</span> {document.evals?.complexity || 'N/A'}
-                    </motion.span>
-                    <span className="text-gray-300 dark:text-gray-700">•</span>
-                    <motion.span
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{ delay: 0.6 }}
-                    >
-                      <span className="font-medium">Clauses:</span> {document.evals?.clauses || 0}
-                    </motion.span>
-                  </div>
-                  
-                  <motion.div 
-                    className={`px-3 py-1 rounded-full text-xs font-medium ${
-                      document.status === 'analyzed'
-                        ? 'bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-400'
-                        : document.status === 'processing'
-                        ? 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-400'
-                        : 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400'
-                    }`}
-                    initial={{ scale: 0, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ 
-                      type: "spring",
-                      stiffness: 200,
-                      delay: 0.5 
-                    }}
-                  >
-                    {document.status === 'analyzed' ? '✓ Analyzed' : 
-                     document.status === 'processing' ? '⏳ Processing' : 'Pending'}
-                  </motion.div>
-                </div>
               </motion.div>
             </>
           )}
