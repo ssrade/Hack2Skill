@@ -1,0 +1,320 @@
+{
+  "repo_notes": {
+    "project_name": "LawBuddy AI - Legal Document Analysis Platform",
+    "description": "A modern, AI-powered legal document analysis platform built with React, TypeScript, and TailwindCSS. The application leverages RAG (Retrieval-Augmented Generation) with Google Vertex AI to analyze legal documents, identify risks, extract key clauses, and provide actionable insights through an interactive chat interface.",
+    "live_url": "https://hack2-skill-three.vercel.app/",
+    "tech_stack": {
+      "frontend": "React 19.1.1 + TypeScript 5.9.3",
+      "build_tool": "Vite 7.1.7",
+      "styling": "TailwindCSS 4.1.14",
+      "ui_components": "Radix UI primitives",
+      "animations": "Framer Motion 12.23.24",
+      "routing": "React Router DOM 7.9.4",
+      "http_client": "Axios 1.13.1",
+      "authentication": "Google OAuth + JWT",
+      "charts": "Recharts 3.3.0",
+      "icons": "Lucide React"
+    },
+    "architecture": {
+      "pattern": "Component-based architecture with Context API for state management",
+      "key_directories": {
+        "src/api": "API client modules for backend communication (auth, documents, RAG queries)",
+        "src/components": "Reusable UI components and complex feature components",
+        "src/contexts": "React Context providers for global state (Auth, Translation)",
+        "src/hooks": "Custom React hooks for business logic",
+        "src/pages": "Route-level page components",
+        "src/services": "Business logic and third-party service integrations",
+        "src/utils": "Utility functions and helpers",
+        "src/types": "TypeScript type definitions and interfaces"
+      }
+    },
+    "key_features": [
+      "AI-powered legal document analysis using RAG + Vertex AI",
+      "Real-time interactive chat with document context",
+      "Document upload (electronic and scanned with OCR)",
+      "Risk detection and complexity scoring",
+      "Clause extraction and categorization",
+      "Document preview with zoom and download",
+      "Multi-language support with automatic translation",
+      "Dark/Light theme switching",
+      "Responsive design (mobile-first approach)",
+      "User profile management with custom avatars and cover photos",
+      "Google OAuth authentication",
+      "Document management (view, delete, preview)",
+      "Session management with timeout detection",
+      "Offline status detection"
+    ],
+    "development_priorities": [
+      "Code quality and TypeScript type safety",
+      "Responsive and accessible UI/UX",
+      "Performance optimization (lazy loading, code splitting)",
+      "Security (JWT handling, secure API calls)",
+      "User experience (smooth animations, loading states)",
+      "Maintainability (component reusability, clean code)",
+      "Translation support for global users",
+      "Error handling and user feedback"
+    ],
+    "coding_standards": {
+      "naming": "PascalCase for components, camelCase for variables/functions",
+      "file_structure": "One component per file with clear naming",
+      "imports": "Absolute imports for cleaner paths",
+      "styling": "Tailwind utility classes with custom components",
+      "state_management": "Context API for global state, local state for component-specific",
+      "error_handling": "Try-catch blocks with user-friendly error messages",
+      "comments": "JSDoc for complex functions, inline comments for clarity"
+    },
+    "api_integration": {
+      "base_url": "Configured via VITE_API_BASE_URL environment variable",
+      "endpoints": {
+        "auth": "/auth/login, /auth/signup, /auth/google",
+        "documents": "/agreements, /agreements/:id",
+        "upload": "/upload",
+        "rag": "/rag/query",
+        "analysis": "/analysis/:id"
+      },
+      "authentication": "JWT token stored in localStorage, sent via Authorization header"
+    },
+    "deployment": {
+      "platform": "Vercel",
+      "build_command": "npm run build",
+      "output_directory": "dist",
+      "environment_variables": "VITE_API_BASE_URL, VITE_GOOGLE_CLIENT_ID"
+    }
+  },
+  "pages": [
+    {
+      "title": "Getting Started",
+      "purpose": "Comprehensive guide for developers to set up the development environment, install dependencies, and run the application locally",
+      "sections": [
+        "Prerequisites and system requirements",
+        "Cloning the repository",
+        "Installing dependencies",
+        "Environment variable configuration",
+        "Running development server",
+        "Building for production",
+        "Common setup issues and troubleshooting"
+      ]
+    },
+    {
+      "title": "Architecture Overview",
+      "purpose": "Detailed explanation of the application architecture, design patterns, and folder structure",
+      "sections": [
+        "Component-based architecture",
+        "State management with Context API",
+        "Routing strategy and protected routes",
+        "API integration layer",
+        "Authentication flow",
+        "Data flow diagrams",
+        "Key design decisions"
+      ]
+    },
+    {
+      "title": "Component Guide",
+      "purpose": "Documentation for all major components, their props, usage examples, and best practices",
+      "sections": [
+        "UI Components (Button, Card, Dialog, Input, etc.)",
+        "Feature Components (DocumentSidebar, DocumentView, ChatInterface)",
+        "Layout Components (MainApp, UserNav)",
+        "Page Components (Landing, AppPage, ProfilePage)",
+        "Component composition patterns",
+        "Props and TypeScript interfaces",
+        "Usage examples with code snippets"
+      ]
+    },
+    {
+      "title": "API Integration",
+      "purpose": "Guide for integrating with the backend API, including authentication, document operations, and RAG queries",
+      "sections": [
+        "API client setup (Axios configuration)",
+        "Authentication endpoints and JWT handling",
+        "Document upload and management",
+        "RAG query interface",
+        "Error handling and retry logic",
+        "Request/response types",
+        "API testing strategies"
+      ]
+    },
+    {
+      "title": "State Management",
+      "purpose": "Explanation of global and local state management strategies using Context API and React hooks",
+      "sections": [
+        "AuthContext - User authentication and session",
+        "TranslationContext - Multi-language support",
+        "Custom hooks (useDocuments, useAuth, useTranslation)",
+        "Local state vs global state decisions",
+        "State update patterns",
+        "Performance considerations"
+      ]
+    },
+    {
+      "title": "Styling Guide",
+      "purpose": "Guidelines for styling components using TailwindCSS, including theme customization and responsive design",
+      "sections": [
+        "TailwindCSS configuration",
+        "Custom color palette",
+        "Dark mode implementation",
+        "Responsive design breakpoints",
+        "Animation with Framer Motion",
+        "Utility classes and component patterns",
+        "Accessibility considerations"
+      ]
+    },
+    {
+      "title": "Authentication Flow",
+      "purpose": "Detailed documentation of the authentication system, including Google OAuth, JWT handling, and session management",
+      "sections": [
+        "Login and signup flows",
+        "Google OAuth integration",
+        "JWT token storage and refresh",
+        "Protected routes implementation",
+        "Session timeout handling",
+        "Logout and cleanup",
+        "Security best practices"
+      ]
+    },
+    {
+      "title": "Document Management",
+      "purpose": "Guide for implementing document upload, analysis, preview, and management features",
+      "sections": [
+        "Document upload flow (electronic vs scanned)",
+        "File type validation and size limits",
+        "Document list and sidebar",
+        "Document preview modal with zoom",
+        "Document deletion and confirmation",
+        "Status tracking (pending, processing, analyzed)",
+        "Error handling for failed uploads"
+      ]
+    },
+    {
+      "title": "Chat Interface",
+      "purpose": "Documentation for the interactive chat feature that allows users to query their documents",
+      "sections": [
+        "Chat component architecture",
+        "Message sending and receiving",
+        "RAG query integration",
+        "Message history per document",
+        "Markdown rendering",
+        "Loading states and error handling",
+        "Chat UI/UX best practices"
+      ]
+    },
+    {
+      "title": "Translation System",
+      "purpose": "Guide for implementing and extending the multi-language translation system",
+      "sections": [
+        "TranslationContext setup",
+        "Translation service integration",
+        "Caching strategy for translations",
+        "Adding new languages",
+        "Using inline translations in components",
+        "Async vs sync translation methods",
+        "Performance optimization"
+      ]
+    },
+    {
+      "title": "User Profile",
+      "purpose": "Documentation for user profile features including avatar upload, cover photos, and preferences",
+      "sections": [
+        "Profile page layout",
+        "Avatar and cover photo upload",
+        "Profile editing mode",
+        "Document count display",
+        "Language preference display",
+        "Form validation",
+        "Saving profile changes"
+      ]
+    },
+    {
+      "title": "Responsive Design",
+      "purpose": "Guidelines for ensuring the application works seamlessly across all device sizes",
+      "sections": [
+        "Mobile-first approach",
+        "Breakpoint strategy",
+        "Mobile sidebar implementation",
+        "Touch-friendly interactions",
+        "Responsive typography",
+        "Image and media handling",
+        "Testing on different devices"
+      ]
+    },
+    {
+      "title": "Testing Guide",
+      "purpose": "Best practices for testing components, hooks, and user flows",
+      "sections": [
+        "Testing setup (Jest, React Testing Library)",
+        "Unit testing components",
+        "Integration testing",
+        "E2E testing strategies",
+        "Mocking API calls",
+        "Testing authentication flows",
+        "Accessibility testing"
+      ]
+    },
+    {
+      "title": "Performance Optimization",
+      "purpose": "Strategies and techniques for optimizing application performance",
+      "sections": [
+        "Code splitting and lazy loading",
+        "Image optimization",
+        "Bundle size analysis",
+        "Memoization techniques",
+        "Virtual scrolling for large lists",
+        "Debouncing and throttling",
+        "Lighthouse audit recommendations"
+      ]
+    },
+    {
+      "title": "Deployment Guide",
+      "purpose": "Step-by-step guide for deploying the application to production",
+      "sections": [
+        "Vercel deployment setup",
+        "Environment variables configuration",
+        "Build optimization",
+        "Domain setup and DNS",
+        "CI/CD pipeline (GitHub Actions)",
+        "Monitoring and error tracking",
+        "Rollback strategies"
+      ]
+    },
+    {
+      "title": "Contributing Guide",
+      "purpose": "Guidelines for contributors on how to contribute to the project",
+      "sections": [
+        "Code of conduct",
+        "Development workflow",
+        "Branch naming conventions",
+        "Commit message format",
+        "Pull request process",
+        "Code review guidelines",
+        "Issue reporting"
+      ]
+    },
+    {
+      "title": "Troubleshooting",
+      "purpose": "Common issues and their solutions for developers",
+      "sections": [
+        "Build errors and solutions",
+        "Runtime errors",
+        "API connection issues",
+        "Authentication problems",
+        "CORS configuration",
+        "Environment variable issues",
+        "Port conflicts",
+        "Dependency version conflicts"
+      ]
+    },
+    {
+      "title": "API Reference",
+      "purpose": "Complete reference for all API endpoints used by the frontend",
+      "sections": [
+        "Authentication endpoints",
+        "Document management endpoints",
+        "RAG query endpoints",
+        "User profile endpoints",
+        "Request/response schemas",
+        "Error codes and handling",
+        "Rate limiting"
+      ]
+    }
+  ]
+}
