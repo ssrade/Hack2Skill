@@ -9,6 +9,8 @@
 A modern, AI-powered legal document analysis platform that helps users understand complex legal documents through intelligent analysis, risk detection, and plain language explanations.
 
 **🌐 Live Demo:** [https://hack2-skill-three.vercel.app/](https://hack2-skill-three.vercel.app/)
+## 📖 Documentation
+View the complete project documentation on [DeepWiki](https://deepwiki.com/MaNaa04/Hack2Skill)
 
 ![LawBuddy AI](https://img.shields.io/badge/Status-Active-success)
 
